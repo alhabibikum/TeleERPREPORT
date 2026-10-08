@@ -1,0 +1,6 @@
+{
+  "name": "TelecomERP Pro - Multi-Branch Mobile Dealer & Retail Management System",
+  "description": "Enterprise-grade multi-branch mobile phone dealer ERP, POS, double-entry accounting, IMEI tracking, inventory, customer/supplier ledgers, MFS/bank reconciliations, and executive intelligence for Bangladesh retail.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
