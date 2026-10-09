@@ -69,7 +69,8 @@ export const ExecutiveDashboard: React.FC = () => {
     if (activeBranchId !== 'all' && i.branch_id !== activeBranchId) return false;
     return i.status === 'in_stock';
   });
-  const stockValuation = inStockImeis.reduce((sum, i) => sum + i.cost_price, 0) + 840000;
+  const nonImeiStock = state.products.filter(p => !p.has_imei).reduce((sum, p) => sum + (p.cost_price * 10), 0);
+  const stockValuation = inStockImeis.reduce((sum, i) => sum + i.cost_price, 0) + (state.products.length > 0 ? nonImeiStock : 0);
 
   // Low stock items count
   const lowStockCount = state.products.filter(p => {

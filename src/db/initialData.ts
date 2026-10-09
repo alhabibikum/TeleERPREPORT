@@ -21,7 +21,14 @@ import {
   ApprovalRequest,
   AuditLog,
   JournalEntry,
-  StockTransfer
+  StockTransfer,
+  WarrantyCase,
+  CustomerComplaint,
+  Quotation,
+  SalesReturn,
+  BankReconciliationRecord,
+  SMSNotificationLog,
+  InstallmentAgreement
 } from '../types';
 
 export const initialCompany: Company = {
@@ -1793,3 +1800,326 @@ export const initialMonthlyReport: MonthlyReport = {
   submitted_at: '2026-10-02T19:00:00',
   approved_by: 'Al-Amin Chowdhury (Owner)'
 };
+
+export const initialWarranties: WarrantyCase[] = [
+  {
+    id: 'war_1',
+    ticket_no: 'WAR-2026-008',
+    imei: '359102948192003',
+    product_name: 'Apple iPhone 16 Pro',
+    brand_name: 'Apple',
+    customer_name: 'Sadia Gadget World',
+    customer_phone: '01911-556677',
+    branch_id: 'br_3',
+    branch_name: 'Uttara Sector-7 Hub',
+    issue_description: 'Earpiece speaker cracking sound during cellular calls',
+    status: 'sent_to_brand',
+    received_date: '2026-10-04',
+    expected_return_date: '2026-10-14',
+    service_charge: 0,
+    notes: 'Sent to Apex Telecom Apple authorized service depot'
+  },
+  {
+    id: 'war_2',
+    ticket_no: 'WAR-2026-009',
+    imei: '869201948102931',
+    product_name: 'Xiaomi Redmi Note 13 Pro+ 5G',
+    brand_name: 'Xiaomi',
+    customer_name: 'Tanvir Hossain',
+    customer_phone: '01715-667788',
+    branch_id: 'br_1',
+    branch_name: 'Motijheel Flagship Store',
+    issue_description: 'Charging port loose connection (120W fast charging dropping)',
+    status: 'repaired',
+    received_date: '2026-10-02',
+    resolved_date: '2026-10-06',
+    service_charge: 0,
+    notes: 'Port flex replaced under official Xiaomi brand warranty'
+  }
+];
+
+export const initialComplaints: CustomerComplaint[] = [
+  {
+    id: 'cmp_1',
+    ticket_no: 'CMP-2026-015',
+    customer_name: 'Chowdhury Mobile Palace',
+    customer_phone: '01611-778899',
+    branch_id: 'br_1',
+    branch_name: 'Motijheel Flagship Store',
+    category: 'delayed_warranty',
+    subject: 'Delayed warranty repair turnaround for Samsung device',
+    description: 'Customer claims handset was submitted 10 days ago without status SMS update.',
+    priority: 'high',
+    status: 'investigating',
+    resolution_notes: 'Branch manager contacted customer; replacement expedited from warehouse.',
+    created_at: '2026-10-05T11:00:00'
+  },
+  {
+    id: 'cmp_2',
+    ticket_no: 'CMP-2026-016',
+    customer_name: 'Rahim Telecom & Electronics',
+    customer_phone: '01712-334455',
+    branch_id: 'br_1',
+    branch_name: 'Motijheel Flagship Store',
+    category: 'billing',
+    subject: 'Credit ledger reconciliation inquiry',
+    description: 'Requested duplicate copy of September statement.',
+    priority: 'medium',
+    status: 'resolved',
+    resolution_notes: 'Statement PDF sent via WhatsApp and printed ledger handed over.',
+    created_at: '2026-10-06T15:20:00',
+    resolved_at: '2026-10-06T16:00:00'
+  }
+];
+
+export const initialQuotations: Quotation[] = [
+  {
+    id: 'quot_1',
+    quotation_no: 'QUOT-2026-012',
+    customer_name: 'Green Tech BD Enterprise',
+    customer_phone: '01711-889900',
+    company_name: 'Green Tech BD Ltd.',
+    branch_id: 'br_1',
+    branch_name: 'Motijheel Flagship Store',
+    items: [
+      {
+        product_id: 'prd_1',
+        product_name: 'Samsung Galaxy S24 Ultra 5G (512GB)',
+        model: 'Galaxy S24 Ultra',
+        quantity: 3,
+        unit_price: 189999,
+        discount: 3000,
+        subtotal: 560997
+      },
+      {
+        product_id: 'prd_10',
+        product_name: 'Samsung 25W Type-C Super Fast Adapter',
+        model: 'EP-TA800',
+        quantity: 3,
+        unit_price: 1850,
+        discount: 150,
+        subtotal: 5100
+      }
+    ],
+    subtotal: 575547,
+    discount: 9450,
+    total_amount: 566097,
+    valid_until: '2026-10-20',
+    notes: 'Corporate fleet purchase for executive management. Includes official brand warranty.',
+    status: 'active',
+    created_by: 'Mehedi Hasan',
+    created_at: '2026-10-07T12:00:00'
+  }
+];
+
+export const initialSalesReturns: SalesReturn[] = [
+  {
+    id: 'ret_1',
+    return_no: 'RET-2026-004',
+    invoice_no: 'INV-2026-081',
+    customer_name: 'Sadia Gadget World',
+    customer_phone: '01911-556677',
+    branch_id: 'br_3',
+    branch_name: 'Uttara Sector-7 Hub',
+    items: [
+      {
+        product_id: 'prd_9',
+        product_name: 'Anker 511 Charger (Nano Pro 20W)',
+        quantity: 2,
+        refund_unit_price: 1750,
+        subtotal: 3500
+      }
+    ],
+    total_refund: 3500,
+    refund_method: 'credit_note',
+    reason: 'Customer mistakenly ordered Type-C adapter instead of Lightning cord; credited to customer ledger.',
+    journal_entry_id: 'JRN-2026-095',
+    created_by: 'Mahmudul Hasan',
+    created_at: '2026-10-05T14:10:00'
+  }
+];
+
+export const initialBankReconciliations: BankReconciliationRecord[] = [
+  {
+    id: 'recon_1',
+    account_id: 'acc_1020',
+    account_name: 'City Bank Ltd. Current A/C (11029384)',
+    statement_date: '2026-09-30',
+    book_balance: 1450000,
+    bank_statement_balance: 1450000,
+    variance: 0,
+    status: 'matched',
+    notes: 'September bank statement fully reconciled with ERP general ledger.',
+    reconciled_by: 'Nasir Uddin, FCMA',
+    created_at: '2026-10-01T17:00:00'
+  },
+  {
+    id: 'recon_2',
+    account_id: 'acc_1030',
+    account_name: 'bKash Merchant Account (01711002233)',
+    statement_date: '2026-10-07',
+    book_balance: 345000,
+    bank_statement_balance: 345000,
+    variance: 0,
+    status: 'matched',
+    notes: 'Daily bKash merchant portal batch statement matched with POS transactions.',
+    reconciled_by: 'Tariqul Islam',
+    created_at: '2026-10-07T21:00:00'
+  }
+];
+
+export const initialSMSLogs: SMSNotificationLog[] = [
+  {
+    id: 'sms_1',
+    recipient_phone: '01715-667788',
+    customer_name: 'Tanvir Hossain',
+    template_type: 'sale_invoice',
+    message: 'Dear Tanvir Hossain, Thank you for purchasing Samsung S24 Ultra (IMEI: 358249110294825) from SmartPhone Galaxy BD Motijheel. Inv #INV-2026-089, Total: BDT 189,749. Hotline: 01711002233',
+    channel: 'sms',
+    status: 'delivered',
+    created_at: '2026-10-06T14:31:00'
+  },
+  {
+    id: 'sms_2',
+    recipient_phone: '01819-445566',
+    customer_name: 'Anik Enterprise',
+    template_type: 'due_reminder',
+    message: 'Dear Anik Enterprise, Reminder from SmartPhone Galaxy BD: Your outstanding credit balance is BDT 142,000. Kindly settle via City Bank or bKash merchant. Contact: 01819334455',
+    channel: 'whatsapp',
+    status: 'delivered',
+    created_at: '2026-10-07T10:00:00'
+  }
+];
+
+export const initialInstallments: InstallmentAgreement[] = [
+  {
+    id: 'inst_1',
+    agreement_no: 'EMI-2026-001',
+    customer_id: 'cust_1',
+    customer_name: 'Tanvir Hossain',
+    customer_phone: '01715-667788',
+    customer_nid: '19922694012000491',
+    guarantor_name: 'Rafiqul Islam (Brother)',
+    guarantor_phone: '01712-998877',
+    guarantor_relation: 'Brother / Govt Officer',
+    guarantor_nid: '19882694012000312',
+    product_id: 'prd_1',
+    product_name: 'Samsung Galaxy S24 Ultra',
+    imei: '358249110294825',
+    branch_id: 'br_1',
+    branch_name: 'Motijheel Flagship Store',
+    cash_price: 189749,
+    down_payment: 50000,
+    financed_amount: 139749,
+    interest_rate_percent: 0,
+    total_installments: 6,
+    monthly_amount: 23291.5,
+    total_payable: 189749,
+    total_paid: 96583,
+    remaining_due: 93166,
+    start_date: '2026-08-10',
+    status: 'active',
+    schedule: [
+      {
+        installment_no: 1,
+        due_date: '2026-09-10',
+        amount: 23291.5,
+        status: 'paid',
+        paid_date: '2026-09-08',
+        paid_amount: 23291.5,
+        payment_method: 'bkash',
+        receipt_no: 'EMI-REC-001'
+      },
+      {
+        installment_no: 2,
+        due_date: '2026-10-10',
+        amount: 23291.5,
+        status: 'paid',
+        paid_date: '2026-10-05',
+        paid_amount: 23291.5,
+        payment_method: 'cash',
+        receipt_no: 'EMI-REC-002'
+      },
+      {
+        installment_no: 3,
+        due_date: '2026-11-10',
+        amount: 23291.5,
+        status: 'pending'
+      },
+      {
+        installment_no: 4,
+        due_date: '2026-12-10',
+        amount: 23291.5,
+        status: 'pending'
+      },
+      {
+        installment_no: 5,
+        due_date: '2027-01-10',
+        amount: 23291.5,
+        status: 'pending'
+      },
+      {
+        installment_no: 6,
+        due_date: '2027-02-10',
+        amount: 23291.5,
+        status: 'pending'
+      }
+    ],
+    created_at: '2026-08-10T11:00:00'
+  },
+  {
+    id: 'inst_2',
+    agreement_no: 'EMI-2026-002',
+    customer_id: 'cust_3',
+    customer_name: 'Shahriar Kabir',
+    customer_phone: '01817-223344',
+    customer_nid: '19952694012000888',
+    guarantor_name: 'Dr. Enamul Kabir (Father)',
+    guarantor_phone: '01819-112233',
+    guarantor_relation: 'Father / Professor',
+    guarantor_nid: '19652694012000101',
+    product_id: 'prd_4',
+    product_name: 'Xiaomi Redmi Note 13 Pro+',
+    imei: '869201948102931',
+    branch_id: 'br_2',
+    branch_name: 'Bashundhara City Mega Store',
+    cash_price: 48999,
+    down_payment: 15000,
+    financed_amount: 33999,
+    interest_rate_percent: 0,
+    total_installments: 3,
+    monthly_amount: 11333,
+    total_payable: 48999,
+    total_paid: 26333,
+    remaining_due: 22666,
+    start_date: '2026-09-01',
+    status: 'active',
+    schedule: [
+      {
+        installment_no: 1,
+        due_date: '2026-10-01',
+        amount: 11333,
+        status: 'paid',
+        paid_date: '2026-10-01',
+        paid_amount: 11333,
+        payment_method: 'bank',
+        receipt_no: 'EMI-REC-003'
+      },
+      {
+        installment_no: 2,
+        due_date: '2026-11-01',
+        amount: 11333,
+        status: 'pending'
+      },
+      {
+        installment_no: 3,
+        due_date: '2026-12-01',
+        amount: 11333,
+        status: 'pending'
+      }
+    ],
+    created_at: '2026-09-01T15:20:00'
+  }
+];
+
+

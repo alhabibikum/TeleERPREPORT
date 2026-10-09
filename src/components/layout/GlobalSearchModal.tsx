@@ -154,13 +154,13 @@ export const GlobalSearchModal: React.FC = () => {
                             {c.name} ({c.code})
                           </div>
                           <div className="text-slate-500 text-[11px]">
-                            Phone: {c.phone} • Limit: ৳{c.credit_limit.toLocaleString('en-IN')}
+                            Phone: {c.phone} • Limit: ৳{(c.credit_limit ?? 0).toLocaleString('en-IN')}
                           </div>
                         </div>
                         <div className="text-right">
                           <span className="text-[10px] text-slate-400 block">{t('Current Due', 'বর্তমান বকেয়া')}</span>
-                          <span className={`font-bold ${c.current_balance > 0 ? 'text-rose-500' : 'text-slate-600'}`}>
-                            ৳{c.current_balance.toLocaleString('en-IN')}
+                          <span className={`font-bold ${(c.current_balance ?? 0) > 0 ? 'text-rose-500' : 'text-slate-600'}`}>
+                            ৳{(c.current_balance ?? 0).toLocaleString('en-IN')}
                           </span>
                         </div>
                       </div>

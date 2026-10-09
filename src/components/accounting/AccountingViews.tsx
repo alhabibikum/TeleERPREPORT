@@ -14,8 +14,11 @@ import {
   ChevronRight,
   ShieldCheck,
   Building2,
-  Wallet
+  Wallet,
+  Trash2,
+  X
 } from 'lucide-react';
+import { Account } from '../../types';
 
 interface AccountingViewsProps {
   viewMode: 'chart_of_accounts' | 'journals' | 'pnl_balance';
@@ -34,6 +37,15 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
   const [jrnCreditAcc, setJrnCreditAcc] = useState('acc_1010');
   const [jrnAmount, setJrnAmount] = useState(1000);
   const [jrnError, setJrnError] = useState<string | null>(null);
+
+  // New Account Modal State
+  const [isAddAccountOpen, setIsAddAccountOpen] = useState(false);
+  const [newAccCode, setNewAccCode] = useState('');
+  const [newAccName, setNewAccName] = useState('');
+  const [newAccBnName, setNewAccBnName] = useState('');
+  const [newAccType, setNewAccType] = useState<Account['type']>('asset');
+  const [newAccCategory, setNewAccCategory] = useState('Operating');
+  const [newAccBalance, setNewAccBalance] = useState<number>(0);
 
   // Accounting engine outputs
   const trialBalance = AccountingEngine.generateTrialBalance(state, activeBranchId);
@@ -56,8 +68,7 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
     const entryNo = 'JRN-' + new Date().getFullYear() + '-' + String(state.journals.length + 301).padStart(3, '0');
     const nowIso = new Date().toISOString();
 
-    state.journals.unshift({
-      id: 'jrn_' + Date.now(),
+    storage.addJournalEntry({
       entry_no: entryNo,
       date: nowIso.split('T')[0],
       reference_type: 'manual',
@@ -96,6 +107,39 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
     setJrnNarration('');
   };
 
+  const handleDeleteJournal = (id: string, entryNo: string) => {
+    if (confirm(`Are you sure you want to delete journal entry "${entryNo}"?`)) {
+      storage.deleteJournalEntry(id);
+    }
+  };
+
+  const handleCreateAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccCode || !newAccName) return;
+
+    storage.addAccount({
+      code: newAccCode,
+      name: newAccName,
+      bn_name: newAccBnName || undefined,
+      type: newAccType,
+      category: newAccCategory,
+      balance: Number(newAccBalance),
+      is_active: true
+    });
+
+    setIsAddAccountOpen(false);
+    setNewAccCode('');
+    setNewAccName('');
+    setNewAccBnName('');
+    setNewAccBalance(0);
+  };
+
+  const handleDeleteAccount = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to remove account "${name}" from Chart of Accounts?`)) {
+      storage.deleteAccount(id);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto">
       {/* Header & Sub-navigation */}
@@ -113,6 +157,15 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
         </div>
 
         <div className="flex items-center space-x-2">
+          {activeTab === 'coa' && (
+            <button
+              onClick={() => setIsAddAccountOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Account (COA)</span>
+            </button>
+          )}
           <button
             onClick={() => setIsManualJournalOpen(true)}
             className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm"
@@ -189,30 +242,48 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
                 <th className="p-3">Category</th>
                 <th className="p-3 text-right">Debit / Credit Balance</th>
                 <th className="p-3 text-center">Status</th>
+                <th className="p-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {state.accounts.map(acc => (
-                <tr key={acc.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                  <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{acc.code}</td>
-                  <td className="p-3">
-                    <div className="font-semibold text-slate-900 dark:text-white">{acc.name}</div>
-                    {acc.bn_name && <div className="text-[10px] text-slate-400 font-sans">{acc.bn_name}</div>}
-                  </td>
-                  <td className="p-3">
-                    <span className="uppercase text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
-                      {acc.type}
-                    </span>
-                  </td>
-                  <td className="p-3 text-slate-500">{acc.category}</td>
-                  <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                    ৳{acc.balance.toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-3 text-center">
-                    <span className="text-emerald-600 font-bold text-[10px]">Active</span>
+              {state.accounts.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                    No accounts defined in Chart of Accounts. Clean database.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                state.accounts.map(acc => (
+                  <tr key={acc.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{acc.code}</td>
+                    <td className="p-3">
+                      <div className="font-semibold text-slate-900 dark:text-white">{acc.name}</div>
+                      {acc.bn_name && <div className="text-[10px] text-slate-400 font-sans">{acc.bn_name}</div>}
+                    </td>
+                    <td className="p-3">
+                      <span className="uppercase text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
+                        {acc.type}
+                      </span>
+                    </td>
+                    <td className="p-3 text-slate-500">{acc.category}</td>
+                    <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      ৳{acc.balance.toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className="text-emerald-600 font-bold text-[10px]">Active</span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => handleDeleteAccount(acc.id, acc.name)}
+                        className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        title="Delete Account"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -221,25 +292,49 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
       {/* TAB 2: JOURNAL ENTRIES (DOUBLE-ENTRY) */}
       {activeTab === 'journals' && (
         <div className="space-y-4">
-          {state.journals.map(jrn => (
-            <div
-              key={jrn.id}
-              className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs p-4 space-y-3"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs pb-2 border-b border-slate-100 dark:border-slate-800 gap-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-mono font-bold text-slate-900 dark:text-white text-sm">
-                    {jrn.entry_no}
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
-                    {jrn.reference_type}
-                  </span>
-                  <span className="text-slate-400">• {jrn.branch_name}</span>
+          {state.journals.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs space-y-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+              <Scale className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 stroke-1" />
+              <p className="font-semibold text-slate-600 dark:text-slate-300">
+                {t('No journal entries recorded. Clean slate general ledger.', 'কোন জাবেদা এন্ট্রি নেই। ফ্রেশ লেজার।')}
+              </p>
+              <button
+                onClick={() => setIsManualJournalOpen(true)}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Post First Journal</span>
+              </button>
+            </div>
+          ) : (
+            state.journals.map(jrn => (
+              <div
+                key={jrn.id}
+                className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs p-4 space-y-3"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs pb-2 border-b border-slate-100 dark:border-slate-800 gap-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                      {jrn.entry_no}
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
+                      {jrn.reference_type}
+                    </span>
+                    <span className="text-slate-400">• {jrn.branch_name}</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-slate-400 text-[11px]">
+                      Date: <strong>{jrn.date}</strong> • Posted by: <strong>{jrn.created_by}</strong>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteJournal(jrn.id, jrn.entry_no)}
+                      className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                      title="Delete Journal Entry"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="text-slate-400 text-[11px]">
-                  Date: <strong>{jrn.date}</strong> • Posted by: <strong>{jrn.created_by}</strong>
-                </div>
-              </div>
 
               <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
                 {jrn.narration}
@@ -286,7 +381,8 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
                 </table>
               </div>
             </div>
-          ))}
+          ))
+        )}
         </div>
       )}
 
@@ -568,6 +664,122 @@ export const AccountingViews: React.FC<AccountingViewsProps> = ({ viewMode }) =>
                   className="flex-1 py-2 bg-emerald-600 text-white font-bold rounded"
                 >
                   Post Journal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Account Modal */}
+      {isAddAccountOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center space-x-1.5">
+                <BookOpen className="w-4 h-4 text-indigo-600" />
+                <span>Create New Account (Chart of Accounts)</span>
+              </h3>
+              <button onClick={() => setIsAddAccountOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAccount} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Account Code *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 1025"
+                    value={newAccCode}
+                    onChange={e => setNewAccCode(e.target.value)}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Account Type *</label>
+                  <select
+                    value={newAccType}
+                    onChange={e => setNewAccType(e.target.value as Account['type'])}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                  >
+                    <option value="asset">Asset (সম্পদ)</option>
+                    <option value="liability">Liability (দায়)</option>
+                    <option value="equity">Equity (মালিকানাস্বত্ব)</option>
+                    <option value="revenue">Revenue (রাজস্ব/আয়)</option>
+                    <option value="expense">Expense (ব্যয়)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-500 mb-0.5">Account Title (English) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Pubali Bank Current Account"
+                  value={newAccName}
+                  onChange={e => setNewAccName(e.target.value)}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-500 mb-0.5">Account Title (বাংলা)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. পূবালী ব্যাংক চলতি হিসাব"
+                  value={newAccBnName}
+                  onChange={e => setNewAccBnName(e.target.value)}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Category *</label>
+                  <select
+                    value={newAccCategory}
+                    onChange={e => setNewAccCategory(e.target.value)}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                  >
+                    <option value="Cash">Cash in Hand</option>
+                    <option value="Bank">Bank Account</option>
+                    <option value="MFS">MFS (bKash/Nagad)</option>
+                    <option value="Receivable">Receivable</option>
+                    <option value="Inventory">Inventory</option>
+                    <option value="Payable">Payable</option>
+                    <option value="Sales">Sales</option>
+                    <option value="Operating">Operating Expense</option>
+                    <option value="Capital">Owner Capital</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Opening Balance (BDT)</label>
+                  <input
+                    type="number"
+                    value={newAccBalance}
+                    onChange={e => setNewAccBalance(Number(e.target.value))}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAccountOpen(false)}
+                  className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded"
+                >
+                  Save Account
                 </button>
               </div>
             </form>

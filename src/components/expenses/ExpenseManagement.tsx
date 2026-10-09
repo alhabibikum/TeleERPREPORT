@@ -9,7 +9,8 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react';
 
 export const ExpenseManagement: React.FC = () => {
@@ -27,6 +28,12 @@ export const ExpenseManagement: React.FC = () => {
     if (activeBranchId !== 'all' && e.branch_id !== activeBranchId) return false;
     return true;
   });
+
+  const handleDeleteExpense = (id: string, voucherNo: string) => {
+    if (confirm(`Are you sure you want to delete expense voucher "${voucherNo}"?`)) {
+      storage.deleteExpense(id);
+    }
+  };
 
   const handleCreateExpense = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,42 +82,70 @@ export const ExpenseManagement: React.FC = () => {
 
       {/* Expenses Table */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b">
-            <tr>
-              <th className="p-3">Voucher #</th>
-              <th className="p-3">Date</th>
-              <th className="p-3">Branch</th>
-              <th className="p-3">Category</th>
-              <th className="p-3">Paid To / Recipient</th>
-              <th className="p-3">Description</th>
-              <th className="p-3">Payment Mode</th>
-              <th className="p-3 text-right">Amount (BDT)</th>
-              <th className="p-3">Approved By</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {expenses.map(exp => (
-              <tr key={exp.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{exp.voucher_no}</td>
-                <td className="p-3 text-slate-500">{new Date(exp.created_at).toLocaleDateString('en-GB')}</td>
-                <td className="p-3 text-slate-600 dark:text-slate-300">{exp.branch_name}</td>
-                <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{exp.category}</td>
-                <td className="p-3">{exp.paid_to}</td>
-                <td className="p-3 text-slate-500">{exp.description}</td>
-                <td className="p-3">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800">
-                    {exp.payment_method}
-                  </span>
-                </td>
-                <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                  ৳{exp.amount.toLocaleString('en-IN')}
-                </td>
-                <td className="p-3 text-slate-400 text-[10px]">{exp.approved_by || 'Management'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {expenses.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 text-xs space-y-2">
+            <DollarSign className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 stroke-1" />
+            <p className="font-semibold text-slate-600 dark:text-slate-300">
+              {t('No expenses recorded. Clean slate database.', 'কোন খরচের ভাউচার নেই। ফ্রেশ ডাটাবেজ।')}
+            </p>
+            <button
+              onClick={() => setIsAddExpenseOpen(true)}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Record First Expense</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b">
+                <tr>
+                  <th className="p-3">Voucher #</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Branch</th>
+                  <th className="p-3">Category</th>
+                  <th className="p-3">Paid To / Recipient</th>
+                  <th className="p-3">Description</th>
+                  <th className="p-3">Payment Mode</th>
+                  <th className="p-3 text-right">Amount (BDT)</th>
+                  <th className="p-3">Approved By</th>
+                  <th className="p-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {expenses.map(exp => (
+                  <tr key={exp.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{exp.voucher_no}</td>
+                    <td className="p-3 text-slate-500">{new Date(exp.created_at).toLocaleDateString('en-GB')}</td>
+                    <td className="p-3 text-slate-600 dark:text-slate-300">{exp.branch_name}</td>
+                    <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{exp.category}</td>
+                    <td className="p-3">{exp.paid_to}</td>
+                    <td className="p-3 text-slate-500">{exp.description}</td>
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800">
+                        {exp.payment_method}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      ৳{(exp.amount ?? 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-3 text-slate-400 text-[10px]">{exp.approved_by || 'Management'}</td>
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => handleDeleteExpense(exp.id, exp.voucher_no)}
+                        className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition"
+                        title="Delete Voucher"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* New Expense Modal */}

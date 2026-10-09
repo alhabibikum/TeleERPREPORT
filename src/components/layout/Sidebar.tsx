@@ -23,7 +23,15 @@ import {
   DatabaseBackup,
   CreditCard,
   ChevronRight,
-  TrendingUp
+  TrendingUp,
+  FileText,
+  RotateCcw,
+  Printer,
+  Wallet,
+  MessageSquare,
+  LifeBuoy,
+  FileBarChart,
+  Settings
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -32,18 +40,26 @@ export type ActiveTab =
   | 'ai_insights'
   | 'pos'
   | 'sales'
+  | 'installments'
+  | 'quotations'
+  | 'returns'
   | 'purchases'
   | 'inventory'
   | 'imei'
+  | 'barcode_labels'
   | 'daily'
   | 'weekly'
   | 'monthly'
+  | 'all_reports'
   | 'accounting'
   | 'journals'
   | 'pnl_balance'
+  | 'reconciliation'
   | 'customers'
   | 'suppliers'
   | 'expenses'
+  | 'sms_center'
+  | 'complaints'
   | 'branches'
   | 'employees'
   | 'approvals'
@@ -89,13 +105,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      group: t('Retail & Inventory', 'রিটেল ও ইনভেন্টরি'),
+      group: t('Retail & Sales', 'রিটেল ও বিক্রয়'),
       items: [
         { id: 'pos' as ActiveTab, label: t('POS Terminal', 'পিওএস বিক্রয় টার্মিনাল'), icon: ShoppingCart, highlight: true },
         { id: 'sales' as ActiveTab, label: t('Sales & Invoices', 'বিক্রয় ও চালান'), icon: Receipt },
+        { id: 'installments' as ActiveTab, label: t('EMI & Installments', 'কিস্তি ও ইএমআই বিক্রয়'), icon: CreditCard, badge: '0% EMI' },
+        { id: 'quotations' as ActiveTab, label: t('B2B Quotations', 'কোটেশন ও প্রফর্মা'), icon: FileText, badge: 'B2B' },
+        { id: 'returns' as ActiveTab, label: t('Returns & Warranty', 'ফেরত ও ওয়ারেন্টি'), icon: RotateCcw },
+        { id: 'barcode_labels' as ActiveTab, label: t('Barcode Label Print', 'বারকোড স্টিকার প্রিন্ট'), icon: Printer }
+      ]
+    },
+    {
+      group: t('Procurement & Stock', 'ক্রয় ও স্টক'),
+      items: [
         { id: 'purchases' as ActiveTab, label: t('Purchase & Receive', 'ক্রয় ও মালামাল গ্রহণ'), icon: Truck },
         { id: 'inventory' as ActiveTab, label: t('Stock & Inventory', 'মজুদ ও স্টক হিসাব'), icon: Boxes },
         { id: 'imei' as ActiveTab, label: t('IMEI Tracking & Audit', 'আইএমইআই ট্র্যাকিং ও অডিট'), icon: Barcode }
+      ]
+    },
+    {
+      group: t('Accounts & Banking', 'হিসাব ও ব্যাংকিং'),
+      items: [
+        { id: 'accounting' as ActiveTab, label: t('Chart of Accounts', 'হিসাবের তালিকা (COA)'), icon: BookOpen },
+        { id: 'journals' as ActiveTab, label: t('Journal Entries (Double-Entry)', 'জাবেদা এন্ট্রি'), icon: Scale },
+        { id: 'pnl_balance' as ActiveTab, label: t('Profit & Loss / Balance Sheet', 'লাভ-ক্ষতি ও ব্যালেন্স শীট'), icon: TrendingUp },
+        { id: 'reconciliation' as ActiveTab, label: t('Bank & MFS Reconciliation', 'ব্যাংক ও এমএফএস সমন্বয়'), icon: Wallet, badge: 'MFS' },
+        { id: 'customers' as ActiveTab, label: t('Customer Ledgers & Aging', 'গ্রাহক দেনাদার লেজার'), icon: Users },
+        { id: 'suppliers' as ActiveTab, label: t('Supplier Payables', 'সরবরাহকারী পাওনাদার'), icon: Building },
+        { id: 'expenses' as ActiveTab, label: t('Expense Vouchers', 'খরচের ভাউচার'), icon: DollarSign }
+      ]
+    },
+    {
+      group: t('Customer & Support', 'গ্রাহক সেবা ও যোগাযোগ'),
+      items: [
+        { id: 'sms_center' as ActiveTab, label: t('SMS & WhatsApp Alerts', 'এসএমএস ও হোয়াটসঅ্যাপ'), icon: MessageSquare, badge: 'BD SMS' },
+        { id: 'complaints' as ActiveTab, label: t('Customer Care & Complaints', 'কাস্টমার সাপোর্ট ও অভিযোগ'), icon: LifeBuoy }
       ]
     },
     {
@@ -103,18 +147,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'daily' as ActiveTab, label: t('Daily Management', 'দৈনিক ব্যবস্থাপনা'), icon: CalendarCheck },
         { id: 'weekly' as ActiveTab, label: t('Weekly Management Report', 'সাপ্তাহিক প্রতিবেদন'), icon: CalendarRange },
-        { id: 'monthly' as ActiveTab, label: t('Monthly Management Report', 'মাসিক প্রতিবেদন'), icon: FileSpreadsheet }
-      ]
-    },
-    {
-      group: t('Accounts & Ledgers', 'হিসাব ও লেজার'),
-      items: [
-        { id: 'accounting' as ActiveTab, label: t('Chart of Accounts', 'হিসাবের তালিকা (COA)'), icon: BookOpen },
-        { id: 'journals' as ActiveTab, label: t('Journal Entries (Double-Entry)', 'জাবেদা এন্ট্রি'), icon: Scale },
-        { id: 'pnl_balance' as ActiveTab, label: t('Profit & Loss / Balance Sheet', 'লাভ-ক্ষতি ও ব্যালেন্স শীট'), icon: TrendingUp },
-        { id: 'customers' as ActiveTab, label: t('Customer Ledgers & Aging', 'গ্রাহক দেনাদার লেজার'), icon: Users },
-        { id: 'suppliers' as ActiveTab, label: t('Supplier Payables', 'সরবরাহকারী পাওনাদার'), icon: Building },
-        { id: 'expenses' as ActiveTab, label: t('Expense Vouchers', 'খরচের ভাউচার'), icon: DollarSign }
+        { id: 'monthly' as ActiveTab, label: t('Monthly Management Report', 'মাসিক প্রতিবেদন'), icon: FileSpreadsheet },
+        { id: 'all_reports' as ActiveTab, label: t('Reports & CSV Export', 'সকল রিপোর্ট ও এক্সপোর্ট'), icon: FileBarChart, badge: '14-in-1' }
       ]
     },
     {
@@ -129,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeCount: pendingApprovalCount
         },
         { id: 'audit' as ActiveTab, label: t('Audit Trail', 'অডিট ট্রেইল ও লগ'), icon: History },
-        { id: 'backup' as ActiveTab, label: t('Database Safety & Backup', 'ব্যাকআপ ও সিস্টেম রিসেট'), icon: DatabaseBackup }
+        { id: 'backup' as ActiveTab, label: t('System Settings', 'সিস্টেম সেটিংস'), icon: Settings }
       ]
     }
   ];

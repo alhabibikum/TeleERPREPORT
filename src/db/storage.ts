@@ -25,7 +25,15 @@ import {
   StockTransfer,
   StockAdjustment,
   PaymentSplitDetail,
-  IMEIStatus
+  IMEIStatus,
+  WarrantyCase,
+  CustomerComplaint,
+  Quotation,
+  SalesReturn,
+  BankReconciliationRecord,
+  SMSNotificationLog,
+  InstallmentAgreement,
+  DatabaseSnapshot
 } from '../types';
 
 import {
@@ -51,7 +59,14 @@ import {
   initialAuditLogs,
   initialDailyReport,
   initialWeeklyReport,
-  initialMonthlyReport
+  initialMonthlyReport,
+  initialWarranties,
+  initialComplaints,
+  initialQuotations,
+  initialSalesReturns,
+  initialBankReconciliations,
+  initialSMSLogs,
+  initialInstallments
 } from './initialData';
 
 export interface DatabaseState {
@@ -80,6 +95,13 @@ export interface DatabaseState {
   dailyReports: DailyReport[];
   weeklyReports: WeeklyReport[];
   monthlyReports: MonthlyReport[];
+  warranties: WarrantyCase[];
+  complaints: CustomerComplaint[];
+  quotations: Quotation[];
+  salesReturns: SalesReturn[];
+  bankReconciliations: BankReconciliationRecord[];
+  smsLogs: SMSNotificationLog[];
+  installments: InstallmentAgreement[];
 }
 
 const STORAGE_KEY = 'telecom_erp_v1_db';
@@ -99,30 +121,37 @@ class StorageService {
         const parsed = JSON.parse(saved);
         return {
           company: parsed.company || initialCompany,
-          branches: parsed.branches || initialBranches,
-          users: parsed.users || initialUsers,
-          categories: parsed.categories || initialCategories,
-          brands: parsed.brands || initialBrands,
-          products: parsed.products || initialProducts,
-          imeis: parsed.imeis || initialIMEIs,
-          imei_movements: parsed.imei_movements || [],
-          customers: parsed.customers || initialCustomers,
-          suppliers: parsed.suppliers || initialSuppliers,
-          accounts: parsed.accounts || initialAccounts,
-          sales: parsed.sales || initialSales,
-          purchases: parsed.purchases || initialPurchases,
-          expenses: parsed.expenses || initialExpenses,
-          employees: parsed.employees || initialEmployees,
-          attendance: parsed.attendance || initialAttendance,
-          journals: parsed.journals || initialJournals,
-          transfers: parsed.transfers || initialTransfers,
-          adjustments: parsed.adjustments || [],
-          alerts: parsed.alerts || initialAlerts,
-          approvals: parsed.approvals || initialApprovals,
-          auditLogs: parsed.auditLogs || initialAuditLogs,
-          dailyReports: parsed.dailyReports || [initialDailyReport],
-          weeklyReports: parsed.weeklyReports || [initialWeeklyReport],
-          monthlyReports: parsed.monthlyReports || [initialMonthlyReport]
+          branches: Array.isArray(parsed.branches) && parsed.branches.length > 0 ? parsed.branches : initialBranches,
+          users: Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : initialUsers,
+          categories: Array.isArray(parsed.categories) ? parsed.categories : initialCategories,
+          brands: Array.isArray(parsed.brands) ? parsed.brands : initialBrands,
+          products: Array.isArray(parsed.products) ? parsed.products : initialProducts,
+          imeis: Array.isArray(parsed.imeis) ? parsed.imeis : initialIMEIs,
+          imei_movements: Array.isArray(parsed.imei_movements) ? parsed.imei_movements : [],
+          customers: Array.isArray(parsed.customers) ? parsed.customers : initialCustomers,
+          suppliers: Array.isArray(parsed.suppliers) ? parsed.suppliers : initialSuppliers,
+          accounts: Array.isArray(parsed.accounts) && parsed.accounts.length > 0 ? parsed.accounts : initialAccounts,
+          sales: Array.isArray(parsed.sales) ? parsed.sales : initialSales,
+          purchases: Array.isArray(parsed.purchases) ? parsed.purchases : initialPurchases,
+          expenses: Array.isArray(parsed.expenses) ? parsed.expenses : initialExpenses,
+          employees: Array.isArray(parsed.employees) ? parsed.employees : initialEmployees,
+          attendance: Array.isArray(parsed.attendance) ? parsed.attendance : initialAttendance,
+          journals: Array.isArray(parsed.journals) ? parsed.journals : initialJournals,
+          transfers: Array.isArray(parsed.transfers) ? parsed.transfers : initialTransfers,
+          adjustments: Array.isArray(parsed.adjustments) ? parsed.adjustments : [],
+          alerts: Array.isArray(parsed.alerts) ? parsed.alerts : initialAlerts,
+          approvals: Array.isArray(parsed.approvals) ? parsed.approvals : initialApprovals,
+          auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : initialAuditLogs,
+          dailyReports: Array.isArray(parsed.dailyReports) ? parsed.dailyReports : [initialDailyReport],
+          weeklyReports: Array.isArray(parsed.weeklyReports) ? parsed.weeklyReports : [initialWeeklyReport],
+          monthlyReports: Array.isArray(parsed.monthlyReports) ? parsed.monthlyReports : [initialMonthlyReport],
+          warranties: Array.isArray(parsed.warranties) ? parsed.warranties : initialWarranties,
+          complaints: Array.isArray(parsed.complaints) ? parsed.complaints : initialComplaints,
+          quotations: Array.isArray(parsed.quotations) ? parsed.quotations : initialQuotations,
+          salesReturns: Array.isArray(parsed.salesReturns) ? parsed.salesReturns : initialSalesReturns,
+          bankReconciliations: Array.isArray(parsed.bankReconciliations) ? parsed.bankReconciliations : initialBankReconciliations,
+          smsLogs: Array.isArray(parsed.smsLogs) ? parsed.smsLogs : initialSMSLogs,
+          installments: Array.isArray(parsed.installments) ? parsed.installments : initialInstallments
         };
       }
     } catch (e) {
@@ -169,7 +198,14 @@ class StorageService {
       auditLogs: initialAuditLogs,
       dailyReports: [initialDailyReport],
       weeklyReports: [initialWeeklyReport],
-      monthlyReports: [initialMonthlyReport]
+      monthlyReports: [initialMonthlyReport],
+      warranties: initialWarranties,
+      complaints: initialComplaints,
+      quotations: initialQuotations,
+      salesReturns: initialSalesReturns,
+      bankReconciliations: initialBankReconciliations,
+      smsLogs: initialSMSLogs,
+      installments: initialInstallments
     };
   }
 
@@ -201,28 +237,372 @@ class StorageService {
     return this.state;
   }
 
+  // --- 360-DEGREE BACKUP, RESTORE & SNAPSHOTS ---
+  public exportBackup(): string {
+    const meta = {
+      app: 'TelecomERP Pro',
+      version: '1.2.0',
+      exported_at: new Date().toISOString(),
+      counts: this.getRecordCounts()
+    };
+    return JSON.stringify({ meta, data: this.state }, null, 2);
+  }
+
+  public importBackup(jsonString: string): { success: boolean; message: string; counts?: any } {
+    try {
+      const parsed = JSON.parse(jsonString);
+      const incomingState: DatabaseState = parsed.data ? parsed.data : parsed;
+
+      if (!incomingState.company || !Array.isArray(incomingState.branches) || !Array.isArray(incomingState.products)) {
+        return { success: false, message: 'Invalid database backup structure: missing company, branches, or products table.' };
+      }
+
+      // Safety: create an automatic emergency rollback snapshot before importing
+      this.createSnapshot('Pre-Restore Auto Snapshot (' + new Date().toLocaleTimeString() + ')');
+
+      this.state = {
+        ...this.state,
+        ...incomingState,
+        // Guarantee all arrays are defined
+        branches: incomingState.branches || initialBranches,
+        products: incomingState.products || [],
+        imeis: incomingState.imeis || [],
+        customers: incomingState.customers || [],
+        suppliers: incomingState.suppliers || [],
+        sales: incomingState.sales || [],
+        purchases: incomingState.purchases || [],
+        journals: incomingState.journals || [],
+        accounts: incomingState.accounts || initialAccounts,
+        expenses: incomingState.expenses || [],
+        employees: incomingState.employees || [],
+        attendance: incomingState.attendance || [],
+        transfers: incomingState.transfers || [],
+        adjustments: incomingState.adjustments || [],
+        alerts: incomingState.alerts || [],
+        approvals: incomingState.approvals || [],
+        auditLogs: incomingState.auditLogs || [],
+        dailyReports: incomingState.dailyReports || [],
+        weeklyReports: incomingState.weeklyReports || [],
+        monthlyReports: incomingState.monthlyReports || [],
+        warranties: incomingState.warranties || [],
+        complaints: incomingState.complaints || [],
+        quotations: incomingState.quotations || [],
+        salesReturns: incomingState.salesReturns || [],
+        bankReconciliations: incomingState.bankReconciliations || [],
+        smsLogs: incomingState.smsLogs || [],
+        installments: incomingState.installments || []
+      };
+
+      this.state.auditLogs.unshift({
+        id: 'aud_' + Date.now(),
+        user_name: 'System Admin',
+        role: 'super_admin',
+        action: 'create',
+        module: 'Database Restore',
+        record_id: 'RESTORE-' + Date.now(),
+        summary: 'Database successfully restored from external JSON backup.',
+        ip_address: '127.0.0.1',
+        created_at: new Date().toISOString()
+      });
+
+      this.persist();
+      return { success: true, message: 'Database restored successfully!', counts: this.getRecordCounts() };
+    } catch (e: any) {
+      console.error('Import parse error', e);
+      return { success: false, message: 'JSON Parse Error: ' + (e?.message || 'Invalid format') };
+    }
+  }
+
+  // --- BROWSER LOCAL STORAGE SNAPSHOTS ---
+  public getSnapshots(): DatabaseSnapshot[] {
+    try {
+      const saved = localStorage.getItem('telecom_erp_snapshots_v1');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Failed to load snapshots', e);
+    }
+    return [];
+  }
+
+  public createSnapshot(name: string): DatabaseSnapshot {
+    const snapshots = this.getSnapshots();
+    const str = JSON.stringify(this.state);
+    const sizeKb = Math.round((str.length * 2) / 1024);
+
+    const newSnapshot: DatabaseSnapshot = {
+      id: 'snap_' + Date.now(),
+      name: name.trim() || 'Manual Snapshot ' + new Date().toLocaleString(),
+      timestamp: new Date().toISOString(),
+      size_kb: sizeKb,
+      record_counts: {
+        products: this.state.products.length,
+        imeis: this.state.imeis.length,
+        sales: this.state.sales.length,
+        purchases: this.state.purchases.length,
+        journals: this.state.journals.length,
+        customers: this.state.customers.length,
+        suppliers: this.state.suppliers.length
+      },
+      data: JSON.parse(str)
+    };
+
+    // Keep up to 10 latest snapshots
+    snapshots.unshift(newSnapshot);
+    if (snapshots.length > 10) snapshots.pop();
+
+    try {
+      localStorage.setItem('telecom_erp_snapshots_v1', JSON.stringify(snapshots));
+    } catch (e) {
+      console.warn('Storage quota warning for snapshots', e);
+    }
+
+    return newSnapshot;
+  }
+
+  public restoreSnapshot(id: string): boolean {
+    const snapshots = this.getSnapshots();
+    const snap = snapshots.find(s => s.id === id);
+    if (!snap || !snap.data) return false;
+
+    // Auto-save current before rollback
+    this.createSnapshot('Safety Pre-Rollback Snapshot');
+
+    this.state = snap.data;
+    this.persist();
+    return true;
+  }
+
+  public deleteSnapshot(id: string): boolean {
+    let snapshots = this.getSnapshots();
+    snapshots = snapshots.filter(s => s.id !== id);
+    try {
+      localStorage.setItem('telecom_erp_snapshots_v1', JSON.stringify(snapshots));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // --- 360-DEGREE SELECTIVE RESETS ---
   public resetToDemo(): void {
-    localStorage.removeItem(STORAGE_KEY);
-    this.state = this.loadState();
+    this.state = {
+      company: { ...initialCompany },
+      branches: JSON.parse(JSON.stringify(initialBranches)),
+      users: JSON.parse(JSON.stringify(initialUsers)),
+      categories: JSON.parse(JSON.stringify(initialCategories)),
+      brands: JSON.parse(JSON.stringify(initialBrands)),
+      products: JSON.parse(JSON.stringify(initialProducts)),
+      imeis: JSON.parse(JSON.stringify(initialIMEIs)),
+      imei_movements: [
+        {
+          id: 'mov_init_1',
+          imei1: '358249110294825',
+          product_name: 'Samsung Galaxy S24 Ultra 5G',
+          from_status: 'in_stock',
+          to_status: 'sold',
+          from_branch_id: 'br_1',
+          from_branch_name: 'Motijheel Flagship Store',
+          reference_type: 'sale',
+          reference_id: 'INV-2026-089',
+          notes: 'Sold to Tanvir Hossain via POS',
+          created_by_name: 'Mehedi Hasan',
+          created_at: '2026-10-06T14:30:00'
+        }
+      ],
+      customers: JSON.parse(JSON.stringify(initialCustomers)),
+      suppliers: JSON.parse(JSON.stringify(initialSuppliers)),
+      accounts: JSON.parse(JSON.stringify(initialAccounts)),
+      sales: JSON.parse(JSON.stringify(initialSales)),
+      purchases: JSON.parse(JSON.stringify(initialPurchases)),
+      expenses: JSON.parse(JSON.stringify(initialExpenses)),
+      employees: JSON.parse(JSON.stringify(initialEmployees)),
+      attendance: JSON.parse(JSON.stringify(initialAttendance)),
+      journals: JSON.parse(JSON.stringify(initialJournals)),
+      transfers: JSON.parse(JSON.stringify(initialTransfers)),
+      adjustments: [],
+      alerts: JSON.parse(JSON.stringify(initialAlerts)),
+      approvals: JSON.parse(JSON.stringify(initialApprovals)),
+      auditLogs: JSON.parse(JSON.stringify(initialAuditLogs)),
+      dailyReports: [JSON.parse(JSON.stringify(initialDailyReport))],
+      weeklyReports: [JSON.parse(JSON.stringify(initialWeeklyReport))],
+      monthlyReports: [JSON.parse(JSON.stringify(initialMonthlyReport))],
+      warranties: JSON.parse(JSON.stringify(initialWarranties)),
+      complaints: JSON.parse(JSON.stringify(initialComplaints)),
+      quotations: JSON.parse(JSON.stringify(initialQuotations)),
+      salesReturns: JSON.parse(JSON.stringify(initialSalesReturns)),
+      bankReconciliations: JSON.parse(JSON.stringify(initialBankReconciliations)),
+      smsLogs: JSON.parse(JSON.stringify(initialSMSLogs)),
+      installments: JSON.parse(JSON.stringify(initialInstallments))
+    };
     this.persist();
   }
 
-  public exportBackup(): string {
-    return JSON.stringify(this.state, null, 2);
+  public resetTransactionsOnly(): void {
+    // Keep master catalogs: company, branches, users, categories, brands, products, customers, suppliers, accounts, employees
+    this.state.sales = [];
+    this.state.purchases = [];
+    this.state.expenses = [];
+    this.state.installments = [];
+    this.state.quotations = [];
+    this.state.salesReturns = [];
+    this.state.warranties = [];
+    this.state.complaints = [];
+    this.state.bankReconciliations = [];
+    this.state.smsLogs = [];
+    this.state.approvals = [];
+    this.state.adjustments = [];
+    this.state.transfers = [];
+
+    // Reset all IMEIs to in_stock
+    this.state.imeis.forEach(i => {
+      i.status = 'in_stock';
+      i.sale_invoice_id = undefined;
+    });
+    this.state.imei_movements = [];
+
+    // Reset customer & supplier balances to 0
+    this.state.customers.forEach(c => (c.current_balance = 0));
+    this.state.suppliers.forEach(s => (s.current_payable = 0));
+
+    // Reset branch cash balances to default ৳100,000 opening float
+    this.state.branches.forEach(b => (b.cash_balance = 100000));
+
+    // Reset journal entries to opening balances
+    this.state.journals = initialJournals.slice(0, 3);
+
+    this.state.auditLogs.unshift({
+      id: 'aud_' + Date.now(),
+      user_name: 'Owner / Super Admin',
+      role: 'super_admin',
+      action: 'delete',
+      module: 'System Reset',
+      record_id: 'RESET-TX-' + Date.now(),
+      summary: 'All transaction history cleared. Master products and customer directories preserved.',
+      ip_address: '127.0.0.1',
+      created_at: new Date().toISOString()
+    });
+
+    this.persist();
   }
 
-  public importBackup(jsonString: string): boolean {
-    try {
-      const parsed = JSON.parse(jsonString);
-      if (parsed.company && parsed.branches && parsed.products) {
-        this.state = parsed;
-        this.persist();
-        return true;
+  public resetToFreshBlank(): void {
+    // 100% COMPLETE BLANK CLEAN SLATE - Every single page becomes 0 records!
+    this.state.products = [];
+    this.state.imeis = [];
+    this.state.imei_movements = [];
+    this.state.sales = [];
+    this.state.purchases = [];
+    this.state.expenses = [];
+    this.state.installments = [];
+    this.state.quotations = [];
+    this.state.salesReturns = [];
+    this.state.warranties = [];
+    this.state.complaints = [];
+    this.state.bankReconciliations = [];
+    this.state.smsLogs = [];
+    this.state.approvals = [];
+    this.state.adjustments = [];
+    this.state.transfers = [];
+    this.state.customers = []; // Fully 0 records
+    this.state.suppliers = []; // Fully 0 records
+    this.state.employees = []; // Fully 0 records
+    this.state.attendance = []; // Fully 0 records
+    this.state.journals = []; // Fully 0 records
+    this.state.dailyReports = []; // Fully 0 records
+    this.state.weeklyReports = []; // Fully 0 records
+    this.state.monthlyReports = []; // Fully 0 records
+    this.state.alerts = []; // Fully 0 records
+    this.state.categories = []; // Fully 0 records
+    this.state.brands = []; // Fully 0 records
+
+    // Reset branch cash balances to 0
+    this.state.branches.forEach(b => (b.cash_balance = 0));
+
+    // Reset all account balances to 0 in chart of accounts
+    this.state.accounts.forEach(a => {
+      a.balance = 0;
+    });
+
+    this.state.auditLogs = [
+      {
+        id: 'aud_' + Date.now(),
+        user_name: 'Owner / Super Admin',
+        role: 'super_admin',
+        action: 'delete',
+        module: 'System Reset',
+        record_id: 'RESET-BLANK-' + Date.now(),
+        summary: 'Database 100% completely blanked and cleaned. All pages and tables have 0 records.',
+        ip_address: '127.0.0.1',
+        created_at: new Date().toISOString()
       }
-    } catch (e) {
-      console.error('Import parse error', e);
-    }
-    return false;
+    ];
+
+    this.persist();
+  }
+
+  // --- RECORD COUNTS & INTEGRITY CHECK ---
+  public getRecordCounts() {
+    return {
+      products: this.state.products.length,
+      imeis: this.state.imeis.length,
+      sales: this.state.sales.length,
+      purchases: this.state.purchases.length,
+      customers: this.state.customers.length,
+      suppliers: this.state.suppliers.length,
+      journals: this.state.journals.length,
+      accounts: this.state.accounts.length,
+      branches: this.state.branches.length,
+      installments: this.state.installments.length,
+      warranties: this.state.warranties.length,
+      expenses: this.state.expenses.length
+    };
+  }
+
+  public verifyIntegrity() {
+    const issues: string[] = [];
+
+    // 1. Check double entry balanced in all journals
+    let unbalancedJournals = 0;
+    this.state.journals.forEach(j => {
+      const dr = j.lines.reduce((s, l) => s + (l.debit || 0), 0);
+      const cr = j.lines.reduce((s, l) => s + (l.credit || 0), 0);
+      if (Math.abs(dr - cr) > 0.01) {
+        unbalancedJournals++;
+        issues.push(`Journal #${j.entry_no} is unbalanced (Dr: ৳${dr}, Cr: ৳${cr})`);
+      }
+    });
+
+    // 2. Check orphan IMEIs
+    let orphanImeis = 0;
+    this.state.imeis.forEach(im => {
+      const prodExists = this.state.products.some(p => p.id === im.product_id);
+      if (!prodExists) {
+        orphanImeis++;
+        issues.push(`IMEI ${im.imei1} references missing Product ID: ${im.product_id}`);
+      }
+    });
+
+    // 3. Size calculation
+    const jsonStr = JSON.stringify(this.state);
+    const sizeKb = Math.round((jsonStr.length * 2) / 1024);
+
+    return {
+      isHealthy: issues.length === 0,
+      issues,
+      stats: {
+        totalRecords:
+          this.state.products.length +
+          this.state.imeis.length +
+          this.state.sales.length +
+          this.state.purchases.length +
+          this.state.customers.length +
+          this.state.journals.length,
+        tableCounts: this.getRecordCounts(),
+        storageSizeKB: sizeKb,
+        unbalancedJournals,
+        orphanImeis
+      }
+    };
   }
 
   // --- ATOMIC TRANSACTION: CREATE SALE ---
@@ -245,8 +625,25 @@ class StorageService {
     const branch = this.state.branches.find(b => b.id === params.branch_id);
     if (!branch) return { success: false, error: 'Invalid branch ID' };
 
-    const customer = this.state.customers.find(c => c.id === params.customer_id);
-    if (!customer) return { success: false, error: 'Invalid customer ID' };
+    let customer = this.state.customers.find(c => c.id === params.customer_id);
+    if (!customer) {
+      customer = this.state.customers[0];
+      if (!customer) {
+        customer = {
+          id: 'cust_walkin',
+          code: 'CUST-001',
+          name: 'Walk-in Retail Customer',
+          phone: '01700-000000',
+          address: 'Counter Cash Sale',
+          credit_limit: 0,
+          current_balance: 0,
+          opening_balance: 0,
+          branch_id: branch.id,
+          created_at: new Date().toISOString()
+        };
+        this.state.customers.push(customer);
+      }
+    }
 
     // 1. Validate IMEIs & Stock
     const saleItems = [];
@@ -1333,6 +1730,23 @@ class StorageService {
     return newProduct;
   }
 
+  public updateProduct(id: string, updates: Partial<Product>): boolean {
+    const idx = this.state.products.findIndex(p => p.id === id);
+    if (idx === -1) return false;
+    this.state.products[idx] = { ...this.state.products[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteProduct(id: string): { success: boolean; message: string } {
+    const prod = this.state.products.find(p => p.id === id);
+    if (!prod) return { success: false, message: 'Product not found' };
+    this.state.products = this.state.products.filter(p => p.id !== id);
+    this.state.imeis = this.state.imeis.filter(i => i.product_id !== id);
+    this.persist();
+    return { success: true, message: 'Product removed from catalog' };
+  }
+
   public addCustomer(customer: Omit<Customer, 'id' | 'code' | 'created_at'>) {
     const code = 'CUST-' + String(this.state.customers.length + 1).padStart(3, '0');
     const newCust: Customer = {
@@ -1344,6 +1758,22 @@ class StorageService {
     this.state.customers.push(newCust);
     this.persist();
     return newCust;
+  }
+
+  public updateCustomer(id: string, updates: Partial<Customer>): boolean {
+    const idx = this.state.customers.findIndex(c => c.id === id);
+    if (idx === -1) return false;
+    this.state.customers[idx] = { ...this.state.customers[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteCustomer(id: string): { success: boolean; message: string } {
+    const cust = this.state.customers.find(c => c.id === id);
+    if (!cust) return { success: false, message: 'Customer not found' };
+    this.state.customers = this.state.customers.filter(c => c.id !== id);
+    this.persist();
+    return { success: true, message: 'Customer deleted successfully' };
   }
 
   public addSupplier(supplier: Omit<Supplier, 'id' | 'code' | 'created_at'>) {
@@ -1359,6 +1789,22 @@ class StorageService {
     return newSup;
   }
 
+  public updateSupplier(id: string, updates: Partial<Supplier>): boolean {
+    const idx = this.state.suppliers.findIndex(s => s.id === id);
+    if (idx === -1) return false;
+    this.state.suppliers[idx] = { ...this.state.suppliers[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteSupplier(id: string): { success: boolean; message: string } {
+    const sup = this.state.suppliers.find(s => s.id === id);
+    if (!sup) return { success: false, message: 'Supplier not found' };
+    this.state.suppliers = this.state.suppliers.filter(s => s.id !== id);
+    this.persist();
+    return { success: true, message: 'Supplier deleted successfully' };
+  }
+
   public addEmployee(emp: Omit<Employee, 'id' | 'emp_id'>) {
     const empId = 'EMP-' + String(this.state.employees.length + 1).padStart(3, '0');
     const newEmp: Employee = {
@@ -1369,6 +1815,221 @@ class StorageService {
     this.state.employees.push(newEmp);
     this.persist();
     return newEmp;
+  }
+
+  public updateEmployee(id: string, updates: Partial<Employee>): boolean {
+    const idx = this.state.employees.findIndex(e => e.id === id);
+    if (idx === -1) return false;
+    this.state.employees[idx] = { ...this.state.employees[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteEmployee(id: string): { success: boolean; message: string } {
+    const emp = this.state.employees.find(e => e.id === id);
+    if (!emp) return { success: false, message: 'Employee not found' };
+    this.state.employees = this.state.employees.filter(e => e.id !== id);
+    this.persist();
+    return { success: true, message: 'Employee deleted successfully' };
+  }
+
+  public addBranch(branch: Omit<Branch, 'id'>): Branch {
+    const newBranch: Branch = {
+      ...branch,
+      id: 'br_' + Date.now()
+    };
+    this.state.branches.push(newBranch);
+    this.persist();
+    return newBranch;
+  }
+
+  public updateBranch(id: string, updates: Partial<Branch>): boolean {
+    const idx = this.state.branches.findIndex(b => b.id === id);
+    if (idx === -1) return false;
+    this.state.branches[idx] = { ...this.state.branches[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteBranch(id: string): { success: boolean; message: string } {
+    if (this.state.branches.length <= 1) {
+      return { success: false, message: 'Cannot delete the only branch' };
+    }
+    const b = this.state.branches.find(x => x.id === id);
+    if (b?.is_head_office) {
+      return { success: false, message: 'Head office branch cannot be deleted' };
+    }
+    this.state.branches = this.state.branches.filter(x => x.id !== id);
+    this.persist();
+    return { success: true, message: 'Branch removed successfully' };
+  }
+
+  public updateExpense(id: string, updates: Partial<Expense>): boolean {
+    const idx = this.state.expenses.findIndex(e => e.id === id);
+    if (idx === -1) return false;
+    this.state.expenses[idx] = { ...this.state.expenses[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteExpense(id: string): { success: boolean; message: string } {
+    const exp = this.state.expenses.find(e => e.id === id);
+    if (!exp) return { success: false, message: 'Expense voucher not found' };
+    if (exp.payment_method === 'cash') {
+      const br = this.state.branches.find(b => b.id === exp.branch_id);
+      if (br) br.cash_balance += exp.amount;
+    }
+    this.state.expenses = this.state.expenses.filter(e => e.id !== id);
+    this.persist();
+    return { success: true, message: 'Expense voucher deleted successfully' };
+  }
+
+  public deleteSale(id: string): { success: boolean; message: string } {
+    const sale = this.state.sales.find(s => s.id === id);
+    if (!sale) return { success: false, message: 'Sale invoice not found' };
+    sale.items.forEach(item => {
+      if (item.imei_id) {
+        const im = this.state.imeis.find(i => i.id === item.imei_id);
+        if (im) {
+          im.status = 'in_stock';
+          im.sale_invoice_id = undefined;
+        }
+      }
+    });
+    if (sale.due_amount > 0) {
+      const cust = this.state.customers.find(c => c.id === sale.customer_id);
+      if (cust) {
+        cust.current_balance = Math.max(0, cust.current_balance - sale.due_amount);
+      }
+    }
+    if (sale.paid_amount > 0 && sale.payment_method === 'cash') {
+      const br = this.state.branches.find(b => b.id === sale.branch_id);
+      if (br) br.cash_balance = Math.max(0, br.cash_balance - sale.paid_amount);
+    }
+    this.state.sales = this.state.sales.filter(s => s.id !== id);
+    this.persist();
+    return { success: true, message: 'Sale invoice deleted and inventory reverted' };
+  }
+
+  public deletePurchase(id: string): { success: boolean; message: string } {
+    const pur = this.state.purchases.find(p => p.id === id);
+    if (!pur) return { success: false, message: 'Purchase not found' };
+    if (pur.due_amount > 0) {
+      const sup = this.state.suppliers.find(s => s.id === pur.supplier_id);
+      if (sup) {
+        sup.current_payable = Math.max(0, sup.current_payable - pur.due_amount);
+      }
+    }
+    this.state.purchases = this.state.purchases.filter(p => p.id !== id);
+    this.persist();
+    return { success: true, message: 'Purchase bill removed successfully' };
+  }
+
+  public updateQuotation(id: string, updates: Partial<Quotation>): boolean {
+    const idx = this.state.quotations.findIndex(q => q.id === id);
+    if (idx === -1) return false;
+    this.state.quotations[idx] = { ...this.state.quotations[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteQuotation(id: string): { success: boolean; message: string } {
+    this.state.quotations = this.state.quotations.filter(q => q.id !== id);
+    this.persist();
+    return { success: true, message: 'Quotation deleted successfully' };
+  }
+
+  public deleteInstallmentAgreement(id: string): { success: boolean; message: string } {
+    this.state.installments = this.state.installments.filter(i => i.id !== id);
+    this.persist();
+    return { success: true, message: 'Installment agreement deleted' };
+  }
+
+  public updateWarrantyCase(id: string, updates: Partial<WarrantyCase>): boolean {
+    const idx = this.state.warranties.findIndex(w => w.id === id);
+    if (idx === -1) return false;
+    this.state.warranties[idx] = { ...this.state.warranties[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteWarrantyCase(id: string): { success: boolean; message: string } {
+    this.state.warranties = this.state.warranties.filter(w => w.id !== id);
+    this.persist();
+    return { success: true, message: 'Warranty record removed' };
+  }
+
+  public deleteSalesReturn(id: string): { success: boolean; message: string } {
+    this.state.salesReturns = this.state.salesReturns.filter(r => r.id !== id);
+    this.persist();
+    return { success: true, message: 'Sales return record deleted' };
+  }
+
+  public updateCustomerComplaint(id: string, updates: Partial<CustomerComplaint>): boolean {
+    const idx = this.state.complaints.findIndex(c => c.id === id);
+    if (idx === -1) return false;
+    this.state.complaints[idx] = { ...this.state.complaints[idx], ...updates };
+    this.persist();
+    return true;
+  }
+
+  public deleteCustomerComplaint(id: string): { success: boolean; message: string } {
+    this.state.complaints = this.state.complaints.filter(c => c.id !== id);
+    this.persist();
+    return { success: true, message: 'Complaint ticket deleted' };
+  }
+
+  public deleteBankReconciliation(id: string): { success: boolean; message: string } {
+    this.state.bankReconciliations = this.state.bankReconciliations.filter(b => b.id !== id);
+    this.persist();
+    return { success: true, message: 'Reconciliation record deleted' };
+  }
+
+  public deleteSMSNotification(id: string): { success: boolean; message: string } {
+    this.state.smsLogs = this.state.smsLogs.filter(s => s.id !== id);
+    this.persist();
+    return { success: true, message: 'SMS log deleted' };
+  }
+
+  public addJournalEntry(journal: Omit<JournalEntry, 'id'>) {
+    const newEntry: JournalEntry = {
+      ...journal,
+      id: 'jrn_' + Date.now()
+    };
+    this.state.journals.unshift(newEntry);
+    this.persist();
+    return newEntry;
+  }
+
+  public deleteJournalEntry(id: string): { success: boolean; message: string } {
+    this.state.journals = this.state.journals.filter(j => j.id !== id);
+    this.persist();
+    return { success: true, message: 'Journal entry deleted' };
+  }
+
+  public addAccount(account: Omit<Account, 'id'>) {
+    const newAcc: Account = {
+      ...account,
+      id: 'acc_' + Date.now()
+    };
+    this.state.accounts.push(newAcc);
+    this.persist();
+    return newAcc;
+  }
+
+  public updateAccount(id: string, updates: Partial<Account>) {
+    const acc = this.state.accounts.find(a => a.id === id);
+    if (acc) {
+      Object.assign(acc, updates);
+      this.persist();
+    }
+    return acc;
+  }
+
+  public deleteAccount(id: string): { success: boolean; message: string } {
+    this.state.accounts = this.state.accounts.filter(a => a.id !== id);
+    this.persist();
+    return { success: true, message: 'Account deleted' };
   }
 
   public recordAttendance(employeeId: string, status: AttendanceRecord['status'], inTime?: string) {
@@ -1392,6 +2053,294 @@ class StorageService {
       });
     }
     this.persist();
+  }
+
+  // --- SALES RETURN & REFUND WORKFLOW ---
+  public createSalesReturn(params: {
+    invoice_no: string;
+    customer_name: string;
+    customer_phone: string;
+    branch_id: string;
+    items: Array<{
+      product_id: string;
+      product_name: string;
+      imei1?: string;
+      quantity: number;
+      refund_unit_price: number;
+      subtotal: number;
+    }>;
+    total_refund: number;
+    refund_method: 'cash' | 'bkash' | 'credit_note';
+    reason: string;
+    user_name: string;
+  }): { success: boolean; returnDoc?: SalesReturn; error?: string } {
+    const branch = this.state.branches.find(b => b.id === params.branch_id) || this.state.branches[0];
+    const returnNo = 'RET-' + new Date().getFullYear() + '-' + String(this.state.salesReturns.length + 101).padStart(3, '0');
+    const nowIso = new Date().toISOString();
+    const jrnNo = 'JRN-' + new Date().getFullYear() + '-' + String(this.state.journals.length + 201).padStart(3, '0');
+
+    // 1. If handset IMEI returned, restore status to 'returned'
+    for (const item of params.items) {
+      if (item.imei1) {
+        const dev = this.state.imeis.find(i => i.imei1 === item.imei1 || i.imei2 === item.imei1);
+        if (dev) {
+          dev.status = 'returned';
+          this.state.imei_movements.unshift({
+            id: 'mov_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            imei1: dev.imei1,
+            product_name: dev.product_name,
+            from_status: 'sold',
+            to_status: 'returned',
+            from_branch_id: branch.id,
+            from_branch_name: branch.name,
+            reference_type: 'return',
+            reference_id: returnNo,
+            notes: `Customer return: ${params.reason}`,
+            created_by_name: params.user_name,
+            created_at: nowIso
+          });
+        }
+      }
+    }
+
+    // 2. Adjust payment / ledger
+    let crAccCode = '1010';
+    let crAccName = 'Cash in Hand';
+    if (params.refund_method === 'cash') {
+      crAccCode = branch.id === 'br_2' ? '1011' : branch.id === 'br_3' ? '1012' : '1010';
+      crAccName = `Cash in Hand - ${branch.name}`;
+      branch.cash_balance = Math.max(0, branch.cash_balance - params.total_refund);
+    } else if (params.refund_method === 'bkash') {
+      crAccCode = '1030';
+      crAccName = 'bKash Merchant Account';
+    } else if (params.refund_method === 'credit_note') {
+      crAccCode = '1100';
+      crAccName = 'Accounts Receivable (Customer Ledger)';
+      const customer = this.state.customers.find(c => c.name.toLowerCase() === params.customer_name.toLowerCase());
+      if (customer) {
+        customer.current_balance = Math.max(0, customer.current_balance - params.total_refund);
+      }
+    }
+
+    // 3. Balanced Accounting Entry: Dr Sales Return (4010/4020 contra), Cr Cash/Receivable
+    this.state.journals.unshift({
+      id: 'jrn_' + Date.now(),
+      entry_no: jrnNo,
+      date: nowIso.split('T')[0],
+      reference_type: 'return',
+      reference_id: returnNo,
+      branch_id: branch.id,
+      branch_name: branch.name,
+      narration: `Sales Return ${returnNo} (Invoice: ${params.invoice_no}) - Reason: ${params.reason}`,
+      lines: [
+        {
+          id: 'jl_' + Math.random().toString(36).slice(2, 8),
+          account_id: 'acc_4010',
+          account_code: '4010',
+          account_name: 'Sales Returns & Allowances',
+          debit: params.total_refund,
+          credit: 0,
+          branch_id: branch.id,
+          description: `Customer refund for ${returnNo}`
+        },
+        {
+          id: 'jl_' + Math.random().toString(36).slice(2, 8),
+          account_id: 'acc_' + crAccCode,
+          account_code: crAccCode,
+          account_name: crAccName,
+          debit: 0,
+          credit: params.total_refund,
+          branch_id: branch.id,
+          description: `Refund payout via ${params.refund_method.toUpperCase()}`
+        }
+      ],
+      total_debit: params.total_refund,
+      total_credit: params.total_refund,
+      is_posted: true,
+      created_by: params.user_name,
+      created_at: nowIso
+    });
+
+    const returnDoc: SalesReturn = {
+      id: 'ret_' + Date.now(),
+      return_no: returnNo,
+      invoice_no: params.invoice_no,
+      customer_name: params.customer_name,
+      customer_phone: params.customer_phone,
+      branch_id: branch.id,
+      branch_name: branch.name,
+      items: params.items,
+      total_refund: params.total_refund,
+      refund_method: params.refund_method,
+      reason: params.reason,
+      journal_entry_id: jrnNo,
+      created_by: params.user_name,
+      created_at: nowIso
+    };
+
+    this.state.salesReturns.unshift(returnDoc);
+
+    this.state.auditLogs.unshift({
+      id: 'aud_' + Date.now(),
+      user_name: params.user_name,
+      role: 'cashier',
+      action: 'reverse',
+      module: 'Sales Returns',
+      record_id: returnNo,
+      summary: `Processed return ${returnNo} for invoice ${params.invoice_no} (Refund: ৳${params.total_refund.toLocaleString('en-IN')})`,
+      ip_address: '103.145.12.89',
+      created_at: nowIso
+    });
+
+    this.persist();
+    return { success: true, returnDoc };
+  }
+
+  // --- WARRANTY WORKFLOW ---
+  public createWarrantyCase(params: Omit<WarrantyCase, 'id' | 'ticket_no' | 'received_date'>): WarrantyCase {
+    const ticketNo = 'WAR-' + new Date().getFullYear() + '-' + String(this.state.warranties.length + 101).padStart(3, '0');
+    const newCase: WarrantyCase = {
+      ...params,
+      id: 'war_' + Date.now(),
+      ticket_no: ticketNo,
+      received_date: new Date().toISOString().split('T')[0]
+    };
+    this.state.warranties.unshift(newCase);
+    this.persist();
+    return newCase;
+  }
+
+  public updateWarrantyStatus(id: string, status: WarrantyCase['status'], notes?: string, charge?: number) {
+    const c = this.state.warranties.find(w => w.id === id);
+    if (c) {
+      c.status = status;
+      if (notes) c.notes = notes;
+      if (charge !== undefined) c.service_charge = charge;
+      if (status === 'delivered') {
+        c.resolved_date = new Date().toISOString().split('T')[0];
+      }
+      this.persist();
+    }
+  }
+
+  // --- COMPLAINTS WORKFLOW ---
+  public createCustomerComplaint(params: Omit<CustomerComplaint, 'id' | 'ticket_no' | 'created_at'>): CustomerComplaint {
+    const ticketNo = 'CMP-' + new Date().getFullYear() + '-' + String(this.state.complaints.length + 101).padStart(3, '0');
+    const newCmp: CustomerComplaint = {
+      ...params,
+      id: 'cmp_' + Date.now(),
+      ticket_no: ticketNo,
+      created_at: new Date().toISOString()
+    };
+    this.state.complaints.unshift(newCmp);
+    this.persist();
+    return newCmp;
+  }
+
+  public resolveComplaint(id: string, notes: string) {
+    const c = this.state.complaints.find(cmp => cmp.id === id);
+    if (c) {
+      c.status = 'resolved';
+      c.resolution_notes = notes;
+      c.resolved_at = new Date().toISOString();
+      this.persist();
+    }
+  }
+
+  // --- QUOTATION WORKFLOW ---
+  public createQuotation(params: Omit<Quotation, 'id' | 'quotation_no' | 'created_at'>): Quotation {
+    const quotNo = 'QUOT-' + new Date().getFullYear() + '-' + String(this.state.quotations.length + 101).padStart(3, '0');
+    const newQuot: Quotation = {
+      ...params,
+      id: 'quot_' + Date.now(),
+      quotation_no: quotNo,
+      created_at: new Date().toISOString()
+    };
+    this.state.quotations.unshift(newQuot);
+    this.persist();
+    return newQuot;
+  }
+
+  // --- BANK RECONCILIATION ---
+  public createBankReconciliation(params: Omit<BankReconciliationRecord, 'id' | 'created_at'>): BankReconciliationRecord {
+    const record: BankReconciliationRecord = {
+      ...params,
+      id: 'recon_' + Date.now(),
+      created_at: new Date().toISOString()
+    };
+    this.state.bankReconciliations.unshift(record);
+    this.persist();
+    return record;
+  }
+
+  // --- SMS NOTIFICATION DISPATCH ---
+  public sendSMSNotification(params: Omit<SMSNotificationLog, 'id' | 'created_at'>): SMSNotificationLog {
+    const log: SMSNotificationLog = {
+      ...params,
+      id: 'sms_' + Date.now(),
+      created_at: new Date().toISOString()
+    };
+    this.state.smsLogs.unshift(log);
+    this.persist();
+    return log;
+  }
+
+  // --- INSTALLMENT / EMI SALES ---
+  public createInstallmentAgreement(params: Omit<InstallmentAgreement, 'id' | 'agreement_no' | 'created_at'>): InstallmentAgreement {
+    const agNo = 'EMI-' + new Date().getFullYear() + '-' + String(this.state.installments.length + 101).padStart(3, '0');
+    const newAg: InstallmentAgreement = {
+      ...params,
+      id: 'inst_' + Date.now(),
+      agreement_no: agNo,
+      created_at: new Date().toISOString()
+    };
+    this.state.installments.unshift(newAg);
+
+    // Update IMEI status to sold
+    const imeiRecord = this.state.imeis.find(i => i.imei1 === params.imei);
+    if (imeiRecord) {
+      imeiRecord.status = 'sold';
+      imeiRecord.sale_invoice_id = agNo;
+    }
+
+    this.persist();
+    return newAg;
+  }
+
+  public collectInstallmentPayment(
+    agreementId: string,
+    installmentNo: number,
+    amount: number,
+    paymentMethod: 'cash' | 'bkash' | 'bank',
+    receiptNo?: string
+  ): InstallmentAgreement | null {
+    const agreement = this.state.installments.find(a => a.id === agreementId);
+    if (!agreement) return null;
+
+    const item = agreement.schedule.find(s => s.installment_no === installmentNo);
+    if (item) {
+      item.status = 'paid';
+      item.paid_date = new Date().toISOString().split('T')[0];
+      item.paid_amount = amount;
+      item.payment_method = paymentMethod;
+      item.receipt_no = receiptNo || 'REC-' + Math.floor(100000 + Math.random() * 900000);
+    }
+
+    agreement.total_paid += amount;
+    agreement.remaining_due = Math.max(0, agreement.total_payable - agreement.total_paid);
+
+    if (agreement.remaining_due <= 0) {
+      agreement.status = 'completed';
+    }
+
+    // Add cash or bank balance
+    const branch = this.state.branches.find(b => b.id === agreement.branch_id) || this.state.branches[0];
+    if (paymentMethod === 'cash') {
+      branch.cash_balance += amount;
+    }
+
+    this.persist();
+    return agreement;
   }
 }
 

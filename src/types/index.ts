@@ -63,6 +63,7 @@ export interface Branch {
   manager_name: string;
   cash_balance: number;
   is_warehouse?: boolean;
+  is_head_office?: boolean;
   opening_time?: string;
   closing_time?: string;
 }
@@ -721,3 +722,176 @@ export interface AIInsight {
   confidence: number;
   action_suggestion?: string;
 }
+
+export interface WarrantyCase {
+  id: string;
+  ticket_no: string;
+  imei: string;
+  product_name: string;
+  brand_name: string;
+  customer_name: string;
+  customer_phone: string;
+  branch_id: string;
+  branch_name: string;
+  issue_description: string;
+  status: 'received' | 'sent_to_brand' | 'repaired' | 'replaced' | 'delivered';
+  received_date: string;
+  expected_return_date?: string;
+  resolved_date?: string;
+  service_charge: number;
+  notes?: string;
+}
+
+export interface CustomerComplaint {
+  id: string;
+  ticket_no: string;
+  customer_name: string;
+  customer_phone: string;
+  branch_id: string;
+  branch_name: string;
+  category: 'device_fault' | 'billing' | 'staff_behavior' | 'delayed_warranty' | 'other';
+  subject: string;
+  description: string;
+  priority: 'high' | 'medium' | 'low';
+  status: 'open' | 'investigating' | 'resolved';
+  resolution_notes?: string;
+  created_at: string;
+  resolved_at?: string;
+}
+
+export interface Quotation {
+  id: string;
+  quotation_no: string;
+  customer_name: string;
+  customer_phone: string;
+  company_name?: string;
+  branch_id: string;
+  branch_name: string;
+  items: Array<{
+    product_id: string;
+    product_name: string;
+    model: string;
+    quantity: number;
+    unit_price: number;
+    discount: number;
+    subtotal: number;
+  }>;
+  subtotal: number;
+  discount: number;
+  total_amount: number;
+  valid_until: string;
+  notes?: string;
+  status: 'active' | 'converted' | 'expired';
+  created_by: string;
+  created_at: string;
+}
+
+export interface SalesReturn {
+  id: string;
+  return_no: string;
+  invoice_no: string;
+  customer_name: string;
+  customer_phone: string;
+  branch_id: string;
+  branch_name: string;
+  items: Array<{
+    product_id: string;
+    product_name: string;
+    imei1?: string;
+    quantity: number;
+    refund_unit_price: number;
+    subtotal: number;
+  }>;
+  total_refund: number;
+  refund_method: 'cash' | 'bkash' | 'credit_note';
+  reason: string;
+  journal_entry_id?: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface BankReconciliationRecord {
+  id: string;
+  account_id: string;
+  account_name: string;
+  statement_date: string;
+  book_balance: number;
+  bank_statement_balance: number;
+  variance: number;
+  status: 'matched' | 'unreconciled';
+  notes?: string;
+  reconciled_by: string;
+  created_at: string;
+}
+
+export interface SMSNotificationLog {
+  id: string;
+  recipient_phone: string;
+  customer_name: string;
+  template_type: 'sale_invoice' | 'payment_receipt' | 'due_reminder' | 'warranty_update';
+  message: string;
+  channel: 'sms' | 'whatsapp';
+  status: 'sent' | 'delivered';
+  created_at: string;
+}
+
+export interface InstallmentScheduleItem {
+  installment_no: number;
+  due_date: string;
+  amount: number;
+  status: 'paid' | 'pending' | 'overdue';
+  paid_date?: string;
+  paid_amount?: number;
+  payment_method?: 'cash' | 'bkash' | 'bank';
+  receipt_no?: string;
+}
+
+export interface InstallmentAgreement {
+  id: string;
+  agreement_no: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_nid: string;
+  guarantor_name: string;
+  guarantor_phone: string;
+  guarantor_relation: string;
+  guarantor_nid?: string;
+  product_id: string;
+  product_name: string;
+  imei: string;
+  branch_id: string;
+  branch_name: string;
+  cash_price: number;
+  down_payment: number;
+  financed_amount: number;
+  interest_rate_percent: number;
+  total_installments: number;
+  monthly_amount: number;
+  total_payable: number;
+  total_paid: number;
+  remaining_due: number;
+  start_date: string;
+  status: 'active' | 'completed' | 'overdue';
+  schedule: InstallmentScheduleItem[];
+  created_at: string;
+}
+
+export interface DatabaseSnapshot {
+  id: string;
+  name: string;
+  timestamp: string;
+  size_kb: number;
+  record_counts: {
+    products: number;
+    imeis: number;
+    sales: number;
+    purchases: number;
+    journals: number;
+    customers: number;
+    suppliers: number;
+  };
+  data: any;
+}
+
+

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { storage } from '../../db/storage';
+import { initialWeeklyReport } from '../../db/initialData';
 import { WeeklyReport } from '../../types';
 import {
   CalendarRange,
@@ -18,7 +19,7 @@ import {
 export const WeeklyManagementReportView: React.FC = () => {
   const { state, currentUser, t } = useApp();
 
-  const report = state.weeklyReports[0];
+  const report = state.weeklyReports[0] || initialWeeklyReport;
 
   const [actions, setActions] = useState<string[]>(report?.actions_taken || []);
   const [newAction, setNewAction] = useState('');

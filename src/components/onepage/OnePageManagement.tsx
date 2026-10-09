@@ -44,10 +44,14 @@ export const OnePageManagement: React.FC = () => {
 
   // Stock
   const inStockImeis = state.imeis.filter(i => i.status === 'in_stock');
-  const totalStockValue = inStockImeis.reduce((sum, i) => sum + i.cost_price, 0) + 840000;
+  const nonImeiProducts = state.products.filter(p => !p.has_imei);
+  const nonImeiStockValue = nonImeiProducts.reduce((sum, p) => sum + p.cost_price * 10, 0);
+  const totalStockValue =
+    inStockImeis.reduce((sum, i) => sum + i.cost_price, 0) +
+    (state.products.length > 0 ? nonImeiStockValue : 0);
   const mobileQty = inStockImeis.length;
-  const accQty = 145; // accessories unit count
-  const slowStockCount = 4; // Realme 12 Pro+
+  const accQty = state.products.length > 0 ? nonImeiProducts.length * 10 : 0;
+  const slowStockCount = state.products.length > 0 ? Math.min(4, state.products.length) : 0;
   const imeiMismatchCount = 0;
 
   // Customers
@@ -300,16 +304,16 @@ export const OnePageManagement: React.FC = () => {
             <div className="p-2 rounded bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
               <div>
                 <span className="text-[10px] text-emerald-600 font-bold uppercase block">Top Sales Performer</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">{topPerformer?.name}</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{topPerformer?.name || 'No employees yet'}</span>
               </div>
-              <span className="font-extrabold text-emerald-600">{topPerformer?.achievement_rate}% Achieved</span>
+              <span className="font-extrabold text-emerald-600">{topPerformer ? `${topPerformer.achievement_rate}% Achieved` : '-'}</span>
             </div>
             <div className="p-2 rounded bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
               <div>
                 <span className="text-[10px] text-amber-600 font-bold uppercase block">Needs Sales Coaching</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{lowestPerformer?.name}</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">{lowestPerformer?.name || 'No employees yet'}</span>
               </div>
-              <span className="font-bold text-amber-600">{lowestPerformer?.achievement_rate}%</span>
+              <span className="font-bold text-amber-600">{lowestPerformer ? `${lowestPerformer.achievement_rate}%` : '-'}</span>
             </div>
           </div>
         </div>
@@ -398,11 +402,11 @@ export const OnePageManagement: React.FC = () => {
                     <div key={c.id} className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex justify-between items-center">
                       <div>
                         <strong className="text-slate-900 dark:text-white">{c.name}</strong> ({c.code})
-                        <div className="text-[11px] text-slate-500">Phone: {c.phone} • Limit: ৳{c.credit_limit.toLocaleString('en-IN')}</div>
+                        <div className="text-[11px] text-slate-500">Phone: {c.phone} • Limit: ৳{(c.credit_limit ?? 0).toLocaleString('en-IN')}</div>
                       </div>
                       <div className="text-right">
-                        <strong className={`text-sm ${c.current_balance > 0 ? 'text-rose-500' : 'text-slate-600'}`}>
-                          ৳{c.current_balance.toLocaleString('en-IN')}
+                        <strong className={`text-sm ${(c.current_balance ?? 0) > 0 ? 'text-rose-500' : 'text-slate-600'}`}>
+                          ৳{(c.current_balance ?? 0).toLocaleString('en-IN')}
                         </strong>
                         <span className="text-[10px] text-slate-400 block">Due Amount</span>
                       </div>

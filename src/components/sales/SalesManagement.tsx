@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { storage } from '../../db/storage';
 import { Sale } from '../../types';
 import {
   Receipt,
@@ -10,7 +11,8 @@ import {
   CheckCircle,
   Eye,
   Calendar,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 
 export const SalesManagement: React.FC = () => {
@@ -29,6 +31,12 @@ export const SalesManagement: React.FC = () => {
       s.customer_phone.includes(q)
     );
   });
+
+  const handleDeleteSale = (id: string, invoiceNo: string) => {
+    if (confirm(`Are you sure you want to cancel and delete invoice "${invoiceNo}"? Handsets and IMEIs will be reverted back to in_stock inventory.`)) {
+      storage.deleteSale(id);
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto">
@@ -62,71 +70,92 @@ export const SalesManagement: React.FC = () => {
 
       {/* Invoices List */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b">
-              <tr>
-                <th className="p-3">Invoice #</th>
-                <th className="p-3">Date</th>
-                <th className="p-3">Customer</th>
-                <th className="p-3">Branch</th>
-                <th className="p-3">Items Purchased</th>
-                <th className="p-3 text-right">Total (BDT)</th>
-                <th className="p-3 text-right">Paid (BDT)</th>
-                <th className="p-3 text-right">Due (BDT)</th>
-                <th className="p-3 text-center">Status</th>
-                <th className="p-3 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {sales.map(s => (
-                <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                  <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">
-                    {s.invoice_no}
-                  </td>
-                  <td className="p-3 text-slate-500">
-                    {new Date(s.created_at).toLocaleDateString('en-GB')}
-                  </td>
-                  <td className="p-3">
-                    <div className="font-semibold text-slate-900 dark:text-white">{s.customer_name}</div>
-                    <div className="text-[10px] text-slate-400">{s.customer_phone}</div>
-                  </td>
-                  <td className="p-3 text-slate-600 dark:text-slate-300">{s.branch_name}</td>
-                  <td className="p-3">
-                    <div className="text-[11px] line-clamp-1">
-                      {s.items.map(it => `${it.quantity}x ${it.product_name}`).join(', ')}
-                    </div>
-                  </td>
-                  <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                    ৳{s.total_amount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-3 text-right font-mono text-emerald-600 font-semibold">
-                    ৳{s.paid_amount.toLocaleString('en-IN')}
-                  </td>
-                  <td className="p-3 text-right font-mono font-bold">
-                    <span className={s.due_amount > 0 ? 'text-rose-500' : 'text-slate-400'}>
-                      ৳{s.due_amount.toLocaleString('en-IN')}
-                    </span>
-                  </td>
-                  <td className="p-3 text-center">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="p-3 text-center">
-                    <button
-                      onClick={() => setSelectedSale(s)}
-                      className="p-1 text-slate-500 hover:text-emerald-600"
-                      title="View & Print Invoice"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                  </td>
+        {sales.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 text-xs space-y-2">
+            <Receipt className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 stroke-1" />
+            <p className="font-semibold text-slate-600 dark:text-slate-300">
+              {t('No sales invoices found. Clean slate database.', 'কোন বিক্রয় চালান নেই। ফ্রেশ ডাটাবেজ।')}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Open the POS Terminal to scan and checkout customer sales.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b">
+                <tr>
+                  <th className="p-3">Invoice #</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Customer</th>
+                  <th className="p-3">Branch</th>
+                  <th className="p-3">Items Purchased</th>
+                  <th className="p-3 text-right">Total (BDT)</th>
+                  <th className="p-3 text-right">Paid (BDT)</th>
+                  <th className="p-3 text-right">Due (BDT)</th>
+                  <th className="p-3 text-center">Status</th>
+                  <th className="p-3 text-center">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {sales.map(s => (
+                  <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">
+                      {s.invoice_no}
+                    </td>
+                    <td className="p-3 text-slate-500">
+                      {new Date(s.created_at).toLocaleDateString('en-GB')}
+                    </td>
+                    <td className="p-3">
+                      <div className="font-semibold text-slate-900 dark:text-white">{s.customer_name}</div>
+                      <div className="text-[10px] text-slate-400">{s.customer_phone}</div>
+                    </td>
+                    <td className="p-3 text-slate-600 dark:text-slate-300">{s.branch_name}</td>
+                    <td className="p-3">
+                      <div className="text-[11px] line-clamp-1">
+                        {s.items.map(it => `${it.quantity}x ${it.product_name}`).join(', ')}
+                      </div>
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      ৳{(s.total_amount ?? 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-3 text-right font-mono text-emerald-600 font-semibold">
+                      ৳{(s.paid_amount ?? 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold">
+                      <span className={(s.due_amount ?? 0) > 0 ? 'text-rose-500' : 'text-slate-400'}>
+                        ৳{(s.due_amount ?? 0).toLocaleString('en-IN')}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center space-x-1.5">
+                        <button
+                          onClick={() => setSelectedSale(s)}
+                          className="p-1 text-slate-500 hover:text-emerald-600 transition"
+                          title="View & Print Invoice"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSale(s.id, s.invoice_no)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition"
+                          title="Cancel & Delete Sale"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Invoice Detail / Print Modal */}

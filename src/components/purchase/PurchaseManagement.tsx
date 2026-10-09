@@ -11,7 +11,8 @@ import {
   CheckCircle,
   Barcode,
   Eye,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 
 export const PurchaseManagement: React.FC = () => {
@@ -42,6 +43,12 @@ export const PurchaseManagement: React.FC = () => {
       p.supplier_name.toLowerCase().includes(q)
     );
   });
+
+  const handleDeletePurchase = (id: string, purNo: string) => {
+    if (confirm(`Are you sure you want to remove purchase bill "${purNo}"? Supplier accounts payable will be reverted.`)) {
+      storage.deletePurchase(id);
+    }
+  };
 
   const handleCreatePurchase = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,60 +122,87 @@ export const PurchaseManagement: React.FC = () => {
 
       {/* Purchases List */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b">
-            <tr>
-              <th className="p-3">GRN Purchase #</th>
-              <th className="p-3">Supplier Bill #</th>
-              <th className="p-3">Supplier Name</th>
-              <th className="p-3">Receiving Branch</th>
-              <th className="p-3">Products Received</th>
-              <th className="p-3 text-right">Total Cost (BDT)</th>
-              <th className="p-3 text-right">Paid (BDT)</th>
-              <th className="p-3 text-right">Due / Payable</th>
-              <th className="p-3 text-center">Status</th>
-              <th className="p-3 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {purchases.map(p => (
-              <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{p.purchase_no}</td>
-                <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{p.bill_no}</td>
-                <td className="p-3 font-semibold text-slate-900 dark:text-white">{p.supplier_name}</td>
-                <td className="p-3 text-slate-500">{p.branch_name}</td>
-                <td className="p-3">
-                  <div className="line-clamp-1">{p.items.map(it => `${it.quantity}x ${it.product_name}`).join(', ')}</div>
-                </td>
-                <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                  ৳{p.total_cost.toLocaleString('en-IN')}
-                </td>
-                <td className="p-3 text-right font-mono text-emerald-600 font-semibold">
-                  ৳{p.paid_amount.toLocaleString('en-IN')}
-                </td>
-                <td className="p-3 text-right font-mono font-bold">
-                  <span className={p.due_amount > 0 ? 'text-amber-600' : 'text-slate-400'}>
-                    ৳{p.due_amount.toLocaleString('en-IN')}
-                  </span>
-                </td>
-                <td className="p-3 text-center">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
-                    {p.status}
-                  </span>
-                </td>
-                <td className="p-3 text-center">
-                  <button
-                    onClick={() => setSelectedPurchase(p)}
-                    className="p-1 text-slate-500 hover:text-emerald-600"
-                    title="View GRN Details"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {purchases.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 text-xs space-y-2">
+            <Truck className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 stroke-1" />
+            <p className="font-semibold text-slate-600 dark:text-slate-300">
+              {t('No purchase orders / GRN received. Clean slate database.', 'কোন ক্রয় চালান বা জিআরএন নেই। ফ্রেশ ডাটাবেজ।')}
+            </p>
+            <button
+              onClick={() => setIsNewPurchaseOpen(true)}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Record First Purchase</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b">
+                <tr>
+                  <th className="p-3">GRN Purchase #</th>
+                  <th className="p-3">Supplier Bill #</th>
+                  <th className="p-3">Supplier Name</th>
+                  <th className="p-3">Receiving Branch</th>
+                  <th className="p-3">Products Received</th>
+                  <th className="p-3 text-right">Total Cost (BDT)</th>
+                  <th className="p-3 text-right">Paid (BDT)</th>
+                  <th className="p-3 text-right">Due / Payable</th>
+                  <th className="p-3 text-center">Status</th>
+                  <th className="p-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {purchases.map(p => (
+                  <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                    <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">{p.purchase_no}</td>
+                    <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{p.bill_no}</td>
+                    <td className="p-3 font-semibold text-slate-900 dark:text-white">{p.supplier_name}</td>
+                    <td className="p-3 text-slate-500">{p.branch_name}</td>
+                    <td className="p-3">
+                      <div className="line-clamp-1">{p.items.map(it => `${it.quantity}x ${it.product_name}`).join(', ')}</div>
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                      ৳{(p.total_cost ?? 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-3 text-right font-mono text-emerald-600 font-semibold">
+                      ৳{(p.paid_amount ?? 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="p-3 text-right font-mono font-bold">
+                      <span className={(p.due_amount ?? 0) > 0 ? 'text-amber-600' : 'text-slate-400'}>
+                        ৳{(p.due_amount ?? 0).toLocaleString('en-IN')}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800">
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <div className="flex items-center justify-center space-x-1.5">
+                        <button
+                          onClick={() => setSelectedPurchase(p)}
+                          className="p-1 text-slate-500 hover:text-emerald-600 transition"
+                          title="View GRN Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePurchase(p.id, p.purchase_no)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition"
+                          title="Delete Purchase"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* New Purchase Modal with Batch IMEI input */}

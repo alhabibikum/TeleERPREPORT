@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { storage } from '../../db/storage';
+import { initialMonthlyReport } from '../../db/initialData';
 import { MonthlyReport } from '../../types';
 import {
   FileSpreadsheet,
@@ -19,7 +20,7 @@ import {
 export const MonthlyManagementReportView: React.FC = () => {
   const { state, currentUser, t } = useApp();
 
-  const report = state.monthlyReports[0];
+  const report = state.monthlyReports[0] || initialMonthlyReport;
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [managerSign, setManagerSign] = useState(report?.manager_final_comment || '');

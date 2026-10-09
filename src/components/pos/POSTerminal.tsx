@@ -35,7 +35,19 @@ export const POSTerminal: React.FC = () => {
 
   // Branch must be concrete for POS
   const effectiveBranchId = activeBranchId === 'all' ? 'br_1' : activeBranchId;
-  const currentBranch = state.branches.find(b => b.id === effectiveBranchId) || state.branches[0];
+  const currentBranch =
+    (state.branches && state.branches.find(b => b.id === effectiveBranchId)) ||
+    (state.branches && state.branches[0]) || {
+      id: 'br_1',
+      name: 'Main Flagship Store',
+      bn_name: 'প্রধান শাখা',
+      code: 'BR-01',
+      address: 'Dhaka',
+      phone: '01711-000000',
+      manager_name: 'Manager',
+      is_warehouse: false,
+      cash_balance: 0
+    };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -246,7 +258,23 @@ export const POSTerminal: React.FC = () => {
     setNewCustPhone('');
   };
 
-  const selectedCustomer = state.customers.find(c => c.id === selectedCustomerId) || state.customers[0];
+  const fallbackWalkInCustomer: Customer = {
+    id: 'cust_walkin',
+    code: 'CUST-WALKIN',
+    name: 'Walk-in Retail Customer',
+    phone: '01700-000000',
+    address: 'Counter Cash Sale',
+    credit_limit: 0,
+    current_balance: 0,
+    opening_balance: 0,
+    branch_id: currentBranch?.id || 'br_1',
+    created_at: new Date().toISOString()
+  };
+
+  const selectedCustomer: Customer =
+    (state.customers && state.customers.find(c => c.id === selectedCustomerId)) ||
+    (state.customers && state.customers[0]) ||
+    fallbackWalkInCustomer;
 
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-4.25rem)] gap-3 p-3 bg-slate-100 dark:bg-slate-950 overflow-hidden">
@@ -309,56 +337,68 @@ export const POSTerminal: React.FC = () => {
 
         {/* Product Cards Grid */}
         <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
-          {filteredProducts.map(prod => {
-            const inStockImeis = prod.has_imei ? getAvailableImeis(prod.id).length : 25;
-            const isOutOfStock = inStockImeis === 0;
+          {filteredProducts.length === 0 ? (
+            <div className="col-span-full py-16 text-center text-slate-400 space-y-2">
+              <Smartphone className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 stroke-1" />
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                {t('No products in showroom catalog. Clean slate database.', 'শোরুমে কোনো পণ্য নেই। ফ্রেশ ডাটাবেজ।')}
+              </p>
+              <p className="text-[11px] text-slate-400">
+                {t('Go to Stock & Inventory or Purchase to receive handsets.', 'স্টক ও ইনভেন্টরি অথবা ক্রয় সেকশন থেকে মালামাল যুক্ত করুন।')}
+              </p>
+            </div>
+          ) : (
+            filteredProducts.map(prod => {
+              const inStockImeis = prod.has_imei ? getAvailableImeis(prod.id).length : 25;
+              const isOutOfStock = inStockImeis === 0;
 
-            return (
-              <div
-                key={prod.id}
-                onClick={() => !isOutOfStock && handleAddToCart(prod)}
-                className={`group relative p-3 rounded-lg border transition text-left flex flex-col justify-between ${
-                  isOutOfStock
-                    ? 'opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'
-                    : 'bg-white dark:bg-slate-800/80 hover:border-emerald-500 dark:hover:border-emerald-400 border-slate-200 dark:border-slate-700/80 cursor-pointer shadow-2xs hover:shadow-xs'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      {prod.brand_name}
-                    </span>
-                    {prod.has_imei && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center space-x-1">
-                        <Barcode className="w-2.5 h-2.5" />
-                        <span>IMEI</span>
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-2 leading-snug">
-                    {prod.name}
-                  </h3>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    {prod.storage ? `${prod.storage} / ${prod.ram} • ${prod.color}` : prod.model}
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-end justify-between">
+              return (
+                <div
+                  key={prod.id}
+                  onClick={() => !isOutOfStock && handleAddToCart(prod)}
+                  className={`group relative p-3 rounded-lg border transition text-left flex flex-col justify-between ${
+                    isOutOfStock
+                      ? 'opacity-50 cursor-not-allowed bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800'
+                      : 'bg-white dark:bg-slate-800/80 hover:border-emerald-500 dark:hover:border-emerald-400 border-slate-200 dark:border-slate-700/80 cursor-pointer shadow-2xs hover:shadow-xs'
+                  }`}
+                >
                   <div>
-                    <span className="text-[10px] text-slate-400 block">{t('Retail MRP', 'খুচরা মূল্য')}</span>
-                    <span className="text-xs font-bold text-slate-900 dark:text-emerald-400">
-                      ৳{prod.selling_price.toLocaleString('en-IN')}
-                    </span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        {prod.brand_name}
+                      </span>
+                      {prod.has_imei && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center space-x-1">
+                          <Barcode className="w-2.5 h-2.5" />
+                          <span>IMEI</span>
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="font-bold text-xs text-slate-900 dark:text-white line-clamp-2 leading-snug">
+                      {prod.name}
+                    </h3>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                      {prod.storage ? `${prod.storage} / ${prod.ram} • ${prod.color}` : prod.model}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`text-[10px] font-semibold ${isOutOfStock ? 'text-rose-500' : 'text-slate-500'}`}>
-                      {prod.has_imei ? `${inStockImeis} in stock` : 'Available'}
-                    </span>
+
+                  <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-end justify-between">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">{t('Retail MRP', 'খুচরা মূল্য')}</span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-emerald-400">
+                        ৳{prod.selling_price.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-[10px] font-semibold ${isOutOfStock ? 'text-rose-500' : 'text-slate-500'}`}>
+                        {prod.has_imei ? `${inStockImeis} in stock` : 'Available'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -379,21 +419,27 @@ export const POSTerminal: React.FC = () => {
             </button>
           </div>
           <select
-            value={selectedCustomerId}
+            value={selectedCustomer?.id || fallbackWalkInCustomer.id}
             onChange={e => setSelectedCustomerId(e.target.value)}
             className="w-full text-xs font-medium bg-white dark:bg-slate-800 text-slate-900 dark:text-white p-2 rounded-lg border border-slate-200 dark:border-slate-700 focus:outline-hidden"
           >
-            {state.customers.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.phone}) - {c.current_balance > 0 ? `Due: ৳${c.current_balance.toLocaleString('en-IN')}` : 'Clear'}
+            {(!state.customers || state.customers.length === 0) ? (
+              <option value={fallbackWalkInCustomer.id}>
+                {fallbackWalkInCustomer.name} ({fallbackWalkInCustomer.phone})
               </option>
-            ))}
+            ) : (
+              state.customers.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.phone}) - {(c.current_balance ?? 0) > 0 ? `Due: ৳${(c.current_balance ?? 0).toLocaleString('en-IN')}` : 'Clear'}
+                </option>
+              ))
+            )}
           </select>
-          {selectedCustomer.credit_limit > 0 && (
+          {selectedCustomer && (selectedCustomer.credit_limit ?? 0) > 0 && (
             <div className="mt-1 text-[11px] text-slate-500 flex justify-between">
-              <span>Credit Limit: ৳{selectedCustomer.credit_limit.toLocaleString('en-IN')}</span>
-              <span className={selectedCustomer.current_balance > 0 ? 'text-rose-500 font-semibold' : ''}>
-                Due: ৳{selectedCustomer.current_balance.toLocaleString('en-IN')}
+              <span>Credit Limit: ৳{(selectedCustomer.credit_limit ?? 0).toLocaleString('en-IN')}</span>
+              <span className={(selectedCustomer.current_balance ?? 0) > 0 ? 'text-rose-500 font-semibold' : ''}>
+                Due: ৳{(selectedCustomer.current_balance ?? 0).toLocaleString('en-IN')}
               </span>
             </div>
           )}

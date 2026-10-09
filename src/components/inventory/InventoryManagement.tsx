@@ -12,7 +12,10 @@ import {
   CheckCircle,
   AlertTriangle,
   Smartphone,
-  Headphones
+  Headphones,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 
 export const InventoryManagement: React.FC = () => {
@@ -23,6 +26,8 @@ export const InventoryManagement: React.FC = () => {
 
   // Modals
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isAdjustmentOpen, setIsAdjustmentOpen] = useState(false);
 
@@ -81,6 +86,37 @@ export const InventoryManagement: React.FC = () => {
     setIsAddProductOpen(false);
     setProdName('');
     setProdCode('');
+  };
+
+  const handleOpenEditProduct = (p: Product) => {
+    setEditingProduct(p);
+    setIsEditProductOpen(true);
+  };
+
+  const handleSaveEditProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    storage.updateProduct(editingProduct.id, {
+      name: editingProduct.name,
+      model: editingProduct.model,
+      brand_name: editingProduct.brand_name,
+      category_name: editingProduct.category_name,
+      cost_price: Number(editingProduct.cost_price),
+      selling_price: Number(editingProduct.selling_price),
+      mrp: Number(editingProduct.mrp),
+      min_stock_level: Number(editingProduct.min_stock_level),
+      warranty_months: Number(editingProduct.warranty_months)
+    });
+
+    setIsEditProductOpen(false);
+    setEditingProduct(null);
+  };
+
+  const handleDeleteProduct = (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete product "${name}" from the catalog?`)) {
+      storage.deleteProduct(id);
+    }
   };
 
   const handleExecuteTransfer = (e: React.FormEvent) => {
@@ -270,69 +306,108 @@ export const InventoryManagement: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-hidden">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
-              <tr>
-                <th className="p-3">Code & Barcode</th>
-                <th className="p-3">Product & Model</th>
-                <th className="p-3">Category</th>
-                <th className="p-3">Brand</th>
-                <th className="p-3 text-right">Cost (BDT)</th>
-                <th className="p-3 text-right">Selling (BDT)</th>
-                <th className="p-3 text-right">Gross Margin</th>
-                <th className="p-3 text-center">Available Stock</th>
-                <th className="p-3 text-center">Type</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredProducts.map(p => {
-                const inStockCount = p.has_imei
-                  ? state.imeis.filter(i => i.product_id === p.id && i.status === 'in_stock').length
-                  : 25;
-                const margin = p.selling_price > 0 ? (((p.selling_price - p.cost_price) / p.selling_price) * 100).toFixed(1) : '0';
-
-                return (
-                  <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                    <td className="p-3">
-                      <div className="font-mono font-bold text-slate-900 dark:text-white">{p.code}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{p.barcode}</div>
-                    </td>
-                    <td className="p-3">
-                      <div className="font-bold text-slate-900 dark:text-white">{p.name}</div>
-                      <div className="text-[10px] text-slate-400">{p.model}</div>
-                    </td>
-                    <td className="p-3 text-slate-600 dark:text-slate-300">{p.category_name}</td>
-                    <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{p.brand_name}</td>
-                    <td className="p-3 text-right font-mono text-slate-500">
-                      ৳{p.cost_price.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
-                      ৳{p.selling_price.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-3 text-right font-mono font-bold text-emerald-600">
-                      {margin}%
-                    </td>
-                    <td className="p-3 text-center font-bold font-mono">
-                      <span className={`px-2 py-0.5 rounded text-xs ${
-                        inStockCount <= p.min_stock_level
-                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                          : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                      }`}>
-                        {inStockCount} units
-                      </span>
-                    </td>
-                    <td className="p-3 text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        p.has_imei ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {p.has_imei ? 'IMEI Handset' : 'Accessory'}
-                      </span>
-                    </td>
+          {filteredProducts.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs space-y-2">
+              <Boxes className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 stroke-1" />
+              <p className="font-semibold text-slate-600 dark:text-slate-300">
+                {state.products.length === 0
+                  ? t('No products in catalog. Clean slate database.', 'ক্যাটালগে কোন প্রোডাক্ট নেই। ফ্রেশ ডাটাবেজ।')
+                  : 'No matching products found.'}
+              </p>
+              <button
+                onClick={() => setIsAddProductOpen(true)}
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add First Product</span>
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="p-3">Code & Barcode</th>
+                    <th className="p-3">Product & Model</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3">Brand</th>
+                    <th className="p-3 text-right">Cost (BDT)</th>
+                    <th className="p-3 text-right">Selling (BDT)</th>
+                    <th className="p-3 text-right">Gross Margin</th>
+                    <th className="p-3 text-center">Available Stock</th>
+                    <th className="p-3 text-center">Type</th>
+                    <th className="p-3 text-center">Action</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredProducts.map(p => {
+                    const inStockCount = p.has_imei
+                      ? state.imeis.filter(i => i.product_id === p.id && i.status === 'in_stock').length
+                      : 25;
+                    const margin = p.selling_price > 0 ? (((p.selling_price - p.cost_price) / p.selling_price) * 100).toFixed(1) : '0';
+
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                        <td className="p-3">
+                          <div className="font-mono font-bold text-slate-900 dark:text-white">{p.code}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{p.barcode}</div>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900 dark:text-white">{p.name}</div>
+                          <div className="text-[10px] text-slate-400">{p.model}</div>
+                        </td>
+                        <td className="p-3 text-slate-600 dark:text-slate-300">{p.category_name}</td>
+                        <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{p.brand_name}</td>
+                        <td className="p-3 text-right font-mono text-slate-500">
+                          ৳{(p.cost_price ?? 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          ৳{(p.selling_price ?? 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-emerald-600">
+                          {margin}%
+                        </td>
+                        <td className="p-3 text-center font-bold font-mono">
+                          <span className={`px-2 py-0.5 rounded text-xs ${
+                            inStockCount <= p.min_stock_level
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                              : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          }`}>
+                            {inStockCount} units
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            p.has_imei ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {p.has_imei ? 'IMEI Handset' : 'Accessory'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <div className="flex items-center justify-center space-x-1.5">
+                            <button
+                              onClick={() => handleOpenEditProduct(p)}
+                              className="p-1 text-slate-500 hover:text-blue-600 transition"
+                              title="Edit Product"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(p.id, p.name)}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -605,6 +680,138 @@ export const InventoryManagement: React.FC = () => {
                   className="flex-1 py-2 bg-amber-600 text-white font-bold rounded"
                 >
                   Post Adjustment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {isEditProductOpen && editingProduct && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center space-x-1.5">
+                <Boxes className="w-4 h-4 text-emerald-600" />
+                <span>Edit Product: {editingProduct.name}</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setIsEditProductOpen(false);
+                  setEditingProduct(null);
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditProduct} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-500 mb-0.5">Product Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingProduct.name}
+                  onChange={e => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-500 mb-0.5">Model Specification</label>
+                <input
+                  type="text"
+                  value={editingProduct.model}
+                  onChange={e => setEditingProduct({ ...editingProduct, model: e.target.value })}
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Brand</label>
+                  <input
+                    type="text"
+                    value={editingProduct.brand_name}
+                    onChange={e => setEditingProduct({ ...editingProduct, brand_name: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Category</label>
+                  <input
+                    type="text"
+                    value={editingProduct.category_name}
+                    onChange={e => setEditingProduct({ ...editingProduct, category_name: e.target.value })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Cost Price (BDT)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingProduct.cost_price}
+                    onChange={e => setEditingProduct({ ...editingProduct, cost_price: Number(e.target.value) })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Selling Price (BDT)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingProduct.selling_price}
+                    onChange={e => setEditingProduct({ ...editingProduct, selling_price: Number(e.target.value) })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded font-mono font-bold text-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-slate-500 mb-0.5">MRP (BDT)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingProduct.mrp}
+                    onChange={e => setEditingProduct({ ...editingProduct, mrp: Number(e.target.value) })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 mb-0.5">Warranty (Months)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingProduct.warranty_months}
+                    onChange={e => setEditingProduct({ ...editingProduct, warranty_months: Number(e.target.value) })}
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditProductOpen(false);
+                    setEditingProduct(null);
+                  }}
+                  className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 rounded font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-emerald-600 text-white font-bold rounded hover:bg-emerald-700 transition"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

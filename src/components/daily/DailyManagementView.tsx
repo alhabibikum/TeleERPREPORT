@@ -19,7 +19,19 @@ export const DailyManagementView: React.FC = () => {
   const { state, activeBranchId, currentUser, t } = useApp();
 
   const effectiveBranchId = activeBranchId === 'all' ? 'br_1' : activeBranchId;
-  const currentBranch = state.branches.find(b => b.id === effectiveBranchId) || state.branches[0];
+  const fallbackBranch = {
+    id: 'br_1',
+    name: 'Main Flagship Store',
+    bn_name: 'প্রধান শাখা',
+    code: 'BR-01',
+    address: 'Dhaka',
+    phone: '01711-000001',
+    manager_name: 'Store Manager',
+    cash_balance: 0,
+    is_warehouse: false,
+    created_at: new Date().toISOString()
+  };
+  const currentBranch = state.branches.find(b => b.id === effectiveBranchId) || state.branches[0] || fallbackBranch;
 
   const todayStr = '2026-10-08';
 

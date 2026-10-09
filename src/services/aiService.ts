@@ -71,13 +71,15 @@ export class AIService {
     const highDebtors = state.customers.filter(c => c.current_balance > 100000);
     if (highDebtors.length > 0) {
       const debtor = highDebtors[0];
+      const limit = debtor.credit_limit ?? 0;
+      const limitPct = limit > 0 ? `${((debtor.current_balance / limit) * 100).toFixed(0)}%` : 'No Limit / Over-extended';
       insights.push({
         id: 'ins_alert_debtor',
         category: 'debtor',
         type: 'alert',
-        headline: `Customer ${debtor.name} has significant outstanding balance of ৳${debtor.current_balance.toLocaleString('en-IN')}`,
-        detail: `Sanctioned credit limit is ৳${debtor.credit_limit.toLocaleString('en-IN')}. Current balance is ${(debtor.current_balance / debtor.credit_limit * 100).toFixed(0)}% of limit.`,
-        metric: `৳${debtor.current_balance.toLocaleString('en-IN')}`,
+        headline: `Customer ${debtor.name} has significant outstanding balance of ৳${(debtor.current_balance ?? 0).toLocaleString('en-IN')}`,
+        detail: `Sanctioned credit limit is ৳${limit.toLocaleString('en-IN')}. Current balance is ${limitPct} of limit.`,
+        metric: `৳${(debtor.current_balance ?? 0).toLocaleString('en-IN')}`,
         confidence: 1.0,
         action_suggestion: 'Enforce recovery visit by branch manager prior to extending any further credit invoices.'
       });
