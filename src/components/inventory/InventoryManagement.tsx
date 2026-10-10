@@ -15,8 +15,14 @@ import {
   Headphones,
   Edit2,
   Trash2,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
+import {
+  aiOwnerGuardianValidationEngine,
+  GuardianInterceptionResult
+} from '../../services/aiOwnerGuardianValidationEngine';
+import { GuardianInterceptModal } from '../guardian/GuardianInterceptModal';
 
 export const InventoryManagement: React.FC = () => {
   const { state, activeBranchId, currentUser, t } = useApp();
@@ -55,6 +61,12 @@ export const InventoryManagement: React.FC = () => {
   const [adjType, setAdjType] = useState<'damage' | 'warranty' | 'lost' | 'decrease' | 'increase'>('damage');
   const [adjReason, setAdjReason] = useState('');
 
+  // Interception State
+  const [guardianResult, setGuardianResult] = useState<GuardianInterceptionResult | null>(null);
+  const [interceptionContext, setInterceptionContext] = useState<
+    'create_product' | 'edit_product' | 'transfer' | 'adjustment' | null
+  >(null);
+
   const filteredProducts = state.products.filter(p => {
     if (activeTab === 'mobile' && !p.has_imei) return false;
     if (activeTab === 'accessories' && p.has_imei) return false;
@@ -62,9 +74,9 @@ export const InventoryManagement: React.FC = () => {
     return !q || p.name.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.barcode.includes(q);
   });
 
-  const handleCreateProduct = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prodName) return;
+  const doSaveCreateProduct = (overridePrice?: number, overrideCost?: number) => {
+    const cost = overrideCost ?? Number(prodCost);
+    const price = overridePrice ?? Number(prodPrice);
 
     storage.addProduct({
       code: prodCode || 'PROD-' + Date.now().toString().slice(-4),
@@ -76,16 +88,42 @@ export const InventoryManagement: React.FC = () => {
       has_imei: prodHasImei,
       model: prodName,
       barcode: prodBarcode || String(Date.now()).slice(-12),
-      cost_price: Number(prodCost),
-      selling_price: Number(prodPrice),
-      mrp: Number(prodPrice) * 1.05,
+      cost_price: cost,
+      selling_price: price,
+      mrp: price * 1.05,
       min_stock_level: 3,
       warranty_months: prodHasImei ? 12 : 6
     });
 
     setIsAddProductOpen(false);
+    setGuardianResult(null);
     setProdName('');
     setProdCode('');
+  };
+
+  const handleCreateProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prodName) return;
+
+    const interception = aiOwnerGuardianValidationEngine.interceptInventoryProductSubmission({
+      mode: 'create',
+      name: prodName,
+      cost_price: Number(prodCost),
+      selling_price: Number(prodPrice),
+      mrp: Number(prodPrice) * 1.05,
+      has_imei: prodHasImei,
+      currentUser,
+      state
+    });
+
+    if (!interception.isValid) {
+      aiOwnerGuardianValidationEngine.recordAndAlert(interception, currentUser, state);
+      setInterceptionContext('create_product');
+      setGuardianResult(interception);
+      return;
+    }
+
+    doSaveCreateProduct();
   };
 
   const handleOpenEditProduct = (p: Product) => {
@@ -93,8 +131,7 @@ export const InventoryManagement: React.FC = () => {
     setIsEditProductOpen(true);
   };
 
-  const handleSaveEditProduct = (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSaveEditProduct = () => {
     if (!editingProduct) return;
 
     storage.updateProduct(editingProduct.id, {
@@ -111,6 +148,33 @@ export const InventoryManagement: React.FC = () => {
 
     setIsEditProductOpen(false);
     setEditingProduct(null);
+    setGuardianResult(null);
+  };
+
+  const handleSaveEditProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    const interception = aiOwnerGuardianValidationEngine.interceptInventoryProductSubmission({
+      mode: 'edit',
+      product_id: editingProduct.id,
+      name: editingProduct.name,
+      cost_price: Number(editingProduct.cost_price),
+      selling_price: Number(editingProduct.selling_price),
+      mrp: Number(editingProduct.mrp),
+      has_imei: editingProduct.has_imei,
+      currentUser,
+      state
+    });
+
+    if (!interception.isValid) {
+      aiOwnerGuardianValidationEngine.recordAndAlert(interception, currentUser, state);
+      setInterceptionContext('edit_product');
+      setGuardianResult(interception);
+      return;
+    }
+
+    doSaveEditProduct();
   };
 
   const handleDeleteProduct = (id: string, name: string) => {
@@ -119,10 +183,8 @@ export const InventoryManagement: React.FC = () => {
     }
   };
 
-  const handleExecuteTransfer = (e: React.FormEvent) => {
-    e.preventDefault();
-    setTransferError(null);
-
+  const doExecuteTransfer = (overrideQty?: number) => {
+    const qty = overrideQty ?? Number(trfQty);
     const imeiArr = trfImeis
       .split(/[,\n]/)
       .map(s => s.trim())
@@ -132,7 +194,7 @@ export const InventoryManagement: React.FC = () => {
       from_branch_id: trfFrom,
       to_branch_id: trfTo,
       product_id: trfProduct,
-      quantity: Number(trfQty),
+      quantity: qty,
       imei_numbers: imeiArr.length > 0 ? imeiArr : undefined,
       user_name: currentUser.name
     });
@@ -144,10 +206,39 @@ export const InventoryManagement: React.FC = () => {
 
     setIsTransferOpen(false);
     setTrfImeis('');
+    setGuardianResult(null);
   };
 
-  const handleExecuteAdjustment = (e: React.FormEvent) => {
+  const handleExecuteTransfer = (e: React.FormEvent) => {
     e.preventDefault();
+    setTransferError(null);
+
+    const imeiArr = trfImeis
+      .split(/[,\n]/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const interception = aiOwnerGuardianValidationEngine.interceptStockTransferSubmission({
+      from_branch_id: trfFrom,
+      to_branch_id: trfTo,
+      product_id: trfProduct,
+      quantity: Number(trfQty),
+      imei_numbers: imeiArr.length > 0 ? imeiArr : undefined,
+      currentUser,
+      state
+    });
+
+    if (!interception.isValid) {
+      aiOwnerGuardianValidationEngine.recordAndAlert(interception, currentUser, state);
+      setInterceptionContext('transfer');
+      setGuardianResult(interception);
+      return;
+    }
+
+    doExecuteTransfer();
+  };
+
+  const doExecuteAdjustment = () => {
     storage.createStockAdjustment({
       branch_id: adjBranch,
       product_id: adjProduct,
@@ -159,6 +250,30 @@ export const InventoryManagement: React.FC = () => {
 
     setIsAdjustmentOpen(false);
     setAdjReason('');
+    setGuardianResult(null);
+  };
+
+  const handleExecuteAdjustment = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const interception = aiOwnerGuardianValidationEngine.interceptStockAdjustmentSubmission({
+      branch_id: adjBranch,
+      product_id: adjProduct,
+      adjustment_type: adjType,
+      quantity: 1,
+      reason: adjReason,
+      currentUser,
+      state
+    });
+
+    if (!interception.isValid) {
+      aiOwnerGuardianValidationEngine.recordAndAlert(interception, currentUser, state);
+      setInterceptionContext('adjustment');
+      setGuardianResult(interception);
+      return;
+    }
+
+    doExecuteAdjustment();
   };
 
   return (
@@ -818,6 +933,50 @@ export const InventoryManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* AI Owner Guardian Intercept Modal */}
+      <GuardianInterceptModal
+        result={guardianResult}
+        onClose={() => {
+          setGuardianResult(null);
+          setInterceptionContext(null);
+        }}
+        onApplyCorrection={(field, val) => {
+          if (field === 'selling_price') {
+            if (interceptionContext === 'create_product') setProdPrice(Number(val));
+            if (interceptionContext === 'edit_product') {
+              setEditingProduct(prev => (prev ? { ...prev, selling_price: Number(val) } : null));
+            }
+          }
+          if (field === 'cost_price') {
+            if (interceptionContext === 'create_product') setProdCost(Number(val));
+            if (interceptionContext === 'edit_product') {
+              setEditingProduct(prev => (prev ? { ...prev, cost_price: Number(val) } : null));
+            }
+          }
+          if (field === 'mrp') {
+            if (interceptionContext === 'edit_product') {
+              setEditingProduct(prev => (prev ? { ...prev, mrp: Number(val) } : null));
+            }
+          }
+          if (field === 'quantity') {
+            if (interceptionContext === 'transfer') setTrfQty(Number(val));
+          }
+          setGuardianResult(null);
+        }}
+        onProceedAnyway={() => {
+          if (interceptionContext === 'create_product') doSaveCreateProduct();
+          else if (interceptionContext === 'edit_product') doSaveEditProduct();
+          else if (interceptionContext === 'transfer') doExecuteTransfer();
+          else if (interceptionContext === 'adjustment') doExecuteAdjustment();
+        }}
+        onSupervisorOverride={() => {
+          if (interceptionContext === 'create_product') doSaveCreateProduct();
+          else if (interceptionContext === 'edit_product') doSaveEditProduct();
+          else if (interceptionContext === 'transfer') doExecuteTransfer();
+          else if (interceptionContext === 'adjustment') doExecuteAdjustment();
+        }}
+      />
     </div>
   );
 };

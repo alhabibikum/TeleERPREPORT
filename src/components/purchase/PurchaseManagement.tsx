@@ -12,8 +12,14 @@ import {
   Barcode,
   Eye,
   X,
-  Trash2
+  Trash2,
+  Sparkles
 } from 'lucide-react';
+import {
+  aiOwnerGuardianValidationEngine,
+  GuardianInterceptionResult
+} from '../../services/aiOwnerGuardianValidationEngine';
+import { GuardianInterceptModal } from '../guardian/GuardianInterceptModal';
 
 export const PurchaseManagement: React.FC = () => {
   const { state, currentUser, t } = useApp();
@@ -33,6 +39,7 @@ export const PurchaseManagement: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'cash' | 'credit' | 'split'>('bank');
   const [imeiInput, setImeiInput] = useState('');
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [guardianResult, setGuardianResult] = useState<GuardianInterceptionResult | null>(null);
 
   const purchases = state.purchases.filter(p => {
     const q = searchQuery.toLowerCase();
@@ -50,6 +57,44 @@ export const PurchaseManagement: React.FC = () => {
     }
   };
 
+  const executePurchaseSubmission = (customCost?: number, customQty?: number, customPaid?: number) => {
+    const effCost = customCost ?? Number(unitCost);
+    const effQty = customQty ?? Number(quantity);
+    const effPaid = customPaid ?? Number(paidAmount);
+
+    const imeiList = imeiInput
+      .split(/[,\n]/)
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const res = storage.createPurchase({
+      bill_no: billNo || 'BILL-' + Date.now().toString().slice(-6),
+      supplier_id: supplierId,
+      branch_id: branchId,
+      items: [
+        {
+          product_id: productId,
+          quantity: effQty,
+          unit_cost: effCost,
+          imei_list: imeiList.length > 0 ? imeiList : undefined
+        }
+      ],
+      paid_amount: effPaid,
+      payment_method: paymentMethod,
+      user_name: currentUser.name
+    });
+
+    if (!res.success) {
+      setPurchaseError(res.error || 'Failed to create purchase');
+      return;
+    }
+
+    setIsNewPurchaseOpen(false);
+    setGuardianResult(null);
+    setBillNo('');
+    setImeiInput('');
+  };
+
   const handleCreatePurchase = (e: React.FormEvent) => {
     e.preventDefault();
     setPurchaseError(null);
@@ -65,31 +110,26 @@ export const PurchaseManagement: React.FC = () => {
       return;
     }
 
-    const res = storage.createPurchase({
-      bill_no: billNo || 'BILL-' + Date.now().toString().slice(-6),
+    // Intercept form submission with AIOwnerGuardianValidationEngine
+    const interception = aiOwnerGuardianValidationEngine.interceptPurchaseSubmission({
+      product_id: productId,
       supplier_id: supplierId,
       branch_id: branchId,
-      items: [
-        {
-          product_id: productId,
-          quantity: Number(quantity),
-          unit_cost: Number(unitCost),
-          imei_list: imeiList.length > 0 ? imeiList : undefined
-        }
-      ],
+      quantity: Number(quantity),
+      unit_cost: Number(unitCost),
       paid_amount: Number(paidAmount),
-      payment_method: paymentMethod,
-      user_name: currentUser.name
+      imei_list: imeiList.length > 0 ? imeiList : undefined,
+      currentUser,
+      state
     });
 
-    if (!res.success) {
-      setPurchaseError(res.error || 'Failed to create purchase');
-      return;
+    if (!interception.isValid) {
+      aiOwnerGuardianValidationEngine.recordAndAlert(interception, currentUser, state);
+      setGuardianResult(interception);
+      return; // Submission intercepted
     }
 
-    setIsNewPurchaseOpen(false);
-    setBillNo('');
-    setImeiInput('');
+    executePurchaseSubmission();
   };
 
   return (
@@ -361,6 +401,24 @@ export const PurchaseManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* AI Owner Guardian Intercept Modal */}
+      <GuardianInterceptModal
+        result={guardianResult}
+        onClose={() => setGuardianResult(null)}
+        onApplyCorrection={(field, val) => {
+          if (field === 'unit_cost') setUnitCost(Number(val));
+          if (field === 'quantity') setQuantity(Number(val));
+          if (field === 'paid_amount') setPaidAmount(Number(val));
+          setGuardianResult(null);
+        }}
+        onProceedAnyway={() => {
+          executePurchaseSubmission();
+        }}
+        onSupervisorOverride={() => {
+          executePurchaseSubmission();
+        }}
+      />
     </div>
   );
 };

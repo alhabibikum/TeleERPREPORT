@@ -237,13 +237,22 @@ export interface Sale {
   due_amount: number;
   payment_method: PaymentMethod;
   splits?: PaymentSplitDetail[];
-  status: 'draft' | 'posted' | 'returned' | 'cancelled';
+  status: 'draft' | 'posted' | 'returned' | 'cancelled' | 'voided';
   sales_rep_id: string;
   sales_rep_name: string;
   journal_entry_id?: string;
   notes?: string;
+  void_reason?: string;
+  voided_by?: string;
+  voided_at?: string;
+  restored_by?: string;
+  restored_at?: string;
+  restore_reason?: string;
+  linked_correction_id?: string;
   created_at: string;
 }
+
+export * from './guardian';
 
 export interface PurchaseItem {
   id: string;

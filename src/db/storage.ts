@@ -33,7 +33,11 @@ import {
   BankReconciliationRecord,
   SMSNotificationLog,
   InstallmentAgreement,
-  DatabaseSnapshot
+  DatabaseSnapshot,
+  AIAnomalyRecord,
+  AIAuditTrailEntry,
+  VoiceFeedbackConfig,
+  UserErrorProfile
 } from '../types';
 
 import {
@@ -66,7 +70,11 @@ import {
   initialSalesReturns,
   initialBankReconciliations,
   initialSMSLogs,
-  initialInstallments
+  initialInstallments,
+  initialVoiceConfig,
+  initialAnomalies,
+  initialAIAuditTrail,
+  initialUserErrorProfiles
 } from './initialData';
 
 export interface DatabaseState {
@@ -102,6 +110,10 @@ export interface DatabaseState {
   bankReconciliations: BankReconciliationRecord[];
   smsLogs: SMSNotificationLog[];
   installments: InstallmentAgreement[];
+  aiAnomalies: AIAnomalyRecord[];
+  aiAuditTrail: AIAuditTrailEntry[];
+  voiceFeedbackConfig: VoiceFeedbackConfig;
+  userErrorProfiles: Record<string, UserErrorProfile>;
 }
 
 const STORAGE_KEY = 'telecom_erp_v1_db';
@@ -151,7 +163,11 @@ class StorageService {
           salesReturns: Array.isArray(parsed.salesReturns) ? parsed.salesReturns : initialSalesReturns,
           bankReconciliations: Array.isArray(parsed.bankReconciliations) ? parsed.bankReconciliations : initialBankReconciliations,
           smsLogs: Array.isArray(parsed.smsLogs) ? parsed.smsLogs : initialSMSLogs,
-          installments: Array.isArray(parsed.installments) ? parsed.installments : initialInstallments
+          installments: Array.isArray(parsed.installments) ? parsed.installments : initialInstallments,
+          aiAnomalies: Array.isArray(parsed.aiAnomalies) ? parsed.aiAnomalies : initialAnomalies,
+          aiAuditTrail: Array.isArray(parsed.aiAuditTrail) ? parsed.aiAuditTrail : initialAIAuditTrail,
+          voiceFeedbackConfig: parsed.voiceFeedbackConfig || initialVoiceConfig,
+          userErrorProfiles: parsed.userErrorProfiles || initialUserErrorProfiles
         };
       }
     } catch (e) {
@@ -205,11 +221,15 @@ class StorageService {
       salesReturns: initialSalesReturns,
       bankReconciliations: initialBankReconciliations,
       smsLogs: initialSMSLogs,
-      installments: initialInstallments
+      installments: initialInstallments,
+      aiAnomalies: initialAnomalies,
+      aiAuditTrail: initialAIAuditTrail,
+      voiceFeedbackConfig: initialVoiceConfig,
+      userErrorProfiles: initialUserErrorProfiles
     };
   }
 
-  private persist() {
+  public persist() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
     } catch (e) {
@@ -223,7 +243,7 @@ class StorageService {
     return () => this.listeners.delete(listener);
   }
 
-  private notify() {
+  public notify() {
     for (const listener of this.listeners) {
       try {
         listener();
@@ -432,7 +452,11 @@ class StorageService {
       salesReturns: JSON.parse(JSON.stringify(initialSalesReturns)),
       bankReconciliations: JSON.parse(JSON.stringify(initialBankReconciliations)),
       smsLogs: JSON.parse(JSON.stringify(initialSMSLogs)),
-      installments: JSON.parse(JSON.stringify(initialInstallments))
+      installments: JSON.parse(JSON.stringify(initialInstallments)),
+      aiAnomalies: JSON.parse(JSON.stringify(initialAnomalies)),
+      aiAuditTrail: JSON.parse(JSON.stringify(initialAIAuditTrail)),
+      voiceFeedbackConfig: { ...initialVoiceConfig },
+      userErrorProfiles: JSON.parse(JSON.stringify(initialUserErrorProfiles))
     };
     this.persist();
   }
@@ -514,6 +538,9 @@ class StorageService {
     this.state.alerts = []; // Fully 0 records
     this.state.categories = []; // Fully 0 records
     this.state.brands = []; // Fully 0 records
+    this.state.aiAnomalies = [];
+    this.state.aiAuditTrail = [];
+    this.state.userErrorProfiles = {};
 
     // Reset branch cash balances to 0
     this.state.branches.forEach(b => (b.cash_balance = 0));
@@ -1884,9 +1911,36 @@ class StorageService {
     return { success: true, message: 'Expense voucher deleted successfully' };
   }
 
-  public deleteSale(id: string): { success: boolean; message: string } {
+  public updateCompanyProfile(updates: Partial<Company>): Company {
+    this.state.company = { ...this.state.company, ...updates };
+    this.state.auditLogs.unshift({
+      id: 'aud_comp_' + Date.now(),
+      user_name: 'Admin / Owner',
+      role: 'owner',
+      action: 'update',
+      module: 'Company Settings',
+      record_id: this.state.company.id,
+      summary: `Company profile updated: ${updates.name || this.state.company.name}. All headers, invoices, receipts and reports synced.`,
+      ip_address: '127.0.0.1',
+      created_at: new Date().toISOString()
+    });
+    this.persist();
+    return this.state.company;
+  }
+
+  public voidSale(
+    id: string,
+    reason: string,
+    user: User,
+    linkedCorrectionId?: string
+  ): { success: boolean; message: string } {
     const sale = this.state.sales.find(s => s.id === id);
     if (!sale) return { success: false, message: 'Sale invoice not found' };
+    if (sale.status === 'voided') {
+      return { success: false, message: 'Invoice is already voided' };
+    }
+
+    // 1. Revert IMEIs to in_stock
     sale.items.forEach(item => {
       if (item.imei_id) {
         const im = this.state.imeis.find(i => i.id === item.imei_id);
@@ -1896,19 +1950,309 @@ class StorageService {
         }
       }
     });
+
+    // 2. Adjust customer balance
     if (sale.due_amount > 0) {
       const cust = this.state.customers.find(c => c.id === sale.customer_id);
       if (cust) {
         cust.current_balance = Math.max(0, cust.current_balance - sale.due_amount);
       }
     }
+
+    // 3. Adjust branch cash
     if (sale.paid_amount > 0 && sale.payment_method === 'cash') {
       const br = this.state.branches.find(b => b.id === sale.branch_id);
       if (br) br.cash_balance = Math.max(0, br.cash_balance - sale.paid_amount);
     }
-    this.state.sales = this.state.sales.filter(s => s.id !== id);
+
+    // 4. Update status to voided (NEVER destroy original record)
+    sale.status = 'voided';
+    sale.void_reason = reason;
+    sale.voided_by = user.name;
+    sale.voided_at = new Date().toISOString();
+    sale.linked_correction_id = linkedCorrectionId;
+
+    // 5. Generate Reversal Journal Entry
+    const reversalJournalId = 'jrn_rev_' + Date.now();
+    this.state.journals.unshift({
+      id: reversalJournalId,
+      entry_no: 'REV-' + sale.invoice_no,
+      date: new Date().toISOString().slice(0, 10),
+      reference_type: 'adjustment',
+      reference_id: sale.id,
+      branch_id: sale.branch_id,
+      branch_name: sale.branch_name,
+      narration: `[AI OWNER GUARDIAN] Reversal & Void for Invoice #${sale.invoice_no}. Reason: ${reason}`,
+      lines: [
+        {
+          id: 'jln_rev_1',
+          account_id: 'acc_sales',
+          account_code: '4010',
+          account_name: 'Sales Revenue',
+          debit: sale.total_amount,
+          credit: 0,
+          description: `Reversal of sales invoice #${sale.invoice_no}`
+        },
+        {
+          id: 'jln_rev_2',
+          account_id: 'acc_cash',
+          account_code: '1010',
+          account_name: 'Cash in Hand',
+          debit: 0,
+          credit: sale.paid_amount,
+          description: `Cash refund/cancellation for #${sale.invoice_no}`
+        }
+      ],
+      total_debit: sale.total_amount,
+      total_credit: sale.total_amount,
+      is_posted: true,
+      created_by: user.name,
+      created_at: new Date().toISOString()
+    });
+
+    // 6. Log in AI Audit Trail & System Audit
+    this.logAIAuditTrail({
+      id: 'ai_aud_' + Date.now(),
+      original_trx_id: sale.id,
+      trx_type: 'sale',
+      module: 'sales',
+      field: 'status',
+      old_value: 'posted',
+      new_value: 'voided',
+      detected_reason: reason,
+      ai_decision: 'Reversed inventory to in_stock, rolled back customer receivable & cash, posted reversal journal REV-' + sale.invoice_no,
+      business_rule: 'RULE_SAFE_TRANSACTION_VOID',
+      is_auto_corrected: false,
+      approver_name: user.name,
+      timestamp: new Date().toISOString(),
+      user_name: user.name,
+      reversal_ref_id: reversalJournalId
+    });
+
+    this.state.alerts.unshift({
+      id: 'alt_' + Date.now(),
+      type: 'approval',
+      severity: 'medium',
+      title: `Invoice #${sale.invoice_no} Voided & Reversed`,
+      message: `${user.name} voided invoice #${sale.invoice_no}. Inventory and GL balances safely reverted.`,
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
+
     this.persist();
-    return { success: true, message: 'Sale invoice deleted and inventory reverted' };
+    return { success: true, message: `Invoice #${sale.invoice_no} successfully voided and ledger reversed.` };
+  }
+
+  public restoreSale(
+    id: string,
+    adminUser: User,
+    reason: string
+  ): { success: boolean; message: string } {
+    const sale = this.state.sales.find(s => s.id === id);
+    if (!sale) return { success: false, message: 'Sale invoice not found' };
+    if (sale.status !== 'voided') {
+      return { success: false, message: 'Only voided sales can be restored' };
+    }
+
+    // AI Check 1: Verify IMEIs are currently available to prevent double-selling/counting
+    for (const it of sale.items) {
+      if (it.imei_id) {
+        const im = this.state.imeis.find(i => i.id === it.imei_id);
+        if (im && im.status !== 'in_stock') {
+          return {
+            success: false,
+            message: `Cannot restore: Handset IMEI (${im.imei1}) is currently ${im.status}. Inventory conflict detected.`
+          };
+        }
+      }
+    }
+
+    // Re-allocate IMEIs
+    sale.items.forEach(it => {
+      if (it.imei_id) {
+        const im = this.state.imeis.find(i => i.id === it.imei_id);
+        if (im) {
+          im.status = 'sold';
+          im.sale_invoice_id = sale.id;
+        }
+      }
+    });
+
+    // Restore customer due balance
+    if (sale.due_amount > 0) {
+      const cust = this.state.customers.find(c => c.id === sale.customer_id);
+      if (cust) {
+        cust.current_balance += sale.due_amount;
+      }
+    }
+
+    // Restore branch cash
+    if (sale.paid_amount > 0 && sale.payment_method === 'cash') {
+      const br = this.state.branches.find(b => b.id === sale.branch_id);
+      if (br) br.cash_balance += sale.paid_amount;
+    }
+
+    // Update status to posted with complete restore metadata
+    sale.status = 'posted';
+    sale.restored_by = adminUser.name;
+    sale.restored_at = new Date().toISOString();
+    sale.restore_reason = reason;
+
+    // AI Audit Trail
+    this.logAIAuditTrail({
+      id: 'ai_aud_' + Date.now(),
+      original_trx_id: sale.id,
+      trx_type: 'sale',
+      module: 'sales',
+      field: 'status',
+      old_value: 'voided',
+      new_value: 'posted',
+      detected_reason: `Admin restoration by ${adminUser.name}: ${reason}`,
+      ai_decision: 'Restored original sale, reallocated IMEI inventory, restored customer ledger, double-counting check passed',
+      business_rule: 'RULE_SAFE_ADMIN_RESTORE',
+      is_auto_corrected: false,
+      approver_name: adminUser.name,
+      timestamp: new Date().toISOString(),
+      user_name: adminUser.name,
+      restore_history: [
+        {
+          timestamp: new Date().toISOString(),
+          restored_by: adminUser.name,
+          reason
+        }
+      ]
+    });
+
+    this.state.alerts.unshift({
+      id: 'alt_' + Date.now(),
+      type: 'approval',
+      severity: 'high',
+      title: `Invoice #${sale.invoice_no} Restored by Admin`,
+      message: `${adminUser.name} restored voided invoice #${sale.invoice_no}. Inventory and ledger re-aligned.`,
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
+
+    this.persist();
+    return { success: true, message: `Invoice #${sale.invoice_no} successfully restored.` };
+  }
+
+  public deleteSale(id: string): { success: boolean; message: string } {
+    // Gracefully route delete requests through safe voiding
+    const dummyUser: User = this.state.users[0] || {
+      id: 'usr_admin',
+      name: 'Admin User',
+      email: 'admin@company.com',
+      phone: '01700-000000',
+      role: 'owner',
+      active: true,
+      permissions: ['view', 'create', 'edit', 'delete', 'approve', 'post', 'print', 'export', 'close_period', 'manage_users', 'manage_settings']
+    };
+    return this.voidSale(id, 'User requested transaction cancellation and void', dummyUser);
+  }
+
+  // --- GUARDIAN DATA MANAGEMENT ---
+  public saveAIAnomaly(anomaly: AIAnomalyRecord): void {
+    const existingIdx = this.state.aiAnomalies.findIndex(a => a.id === anomaly.id);
+    if (existingIdx !== -1) {
+      this.state.aiAnomalies[existingIdx] = anomaly;
+    } else {
+      this.state.aiAnomalies.unshift(anomaly);
+    }
+    this.persist();
+  }
+
+  public updateAIAnomaly(id: string, updates: Partial<AIAnomalyRecord>): void {
+    const idx = this.state.aiAnomalies.findIndex(a => a.id === id);
+    if (idx !== -1) {
+      this.state.aiAnomalies[idx] = { ...this.state.aiAnomalies[idx], ...updates };
+      this.persist();
+    }
+  }
+
+  public autoFixAnomaly(anomalyId: string, currentUser: User): { success: boolean; message: string } {
+    const anom = this.state.aiAnomalies.find(a => a.id === anomalyId);
+    if (!anom) return { success: false, message: 'Anomaly record not found' };
+
+    anom.status = 'auto_corrected';
+    anom.applied_value = anom.suggested_value;
+    anom.resolved_at = new Date().toISOString();
+    anom.resolved_by = `${currentUser.name} (Authorized AI Guardian Action)`;
+    anom.resolution_notes = `স্বয়ংক্রিয়ভাবে ব্যবসায়িক নিয়ম (${anom.rule_applied}) অনুযায়ী সমাধান করা হয়েছে।`;
+
+    this.logAIAuditTrail({
+      id: 'ai_aud_' + Date.now(),
+      anomaly_id: anom.id,
+      original_trx_id: anom.record_id,
+      trx_type: 'sale',
+      module: anom.module,
+      field: 'value',
+      old_value: String(anom.detected_value),
+      new_value: String(anom.suggested_value),
+      detected_reason: anom.description,
+      ai_decision: `Applied rule ${anom.rule_applied} and synchronized records`,
+      business_rule: anom.rule_applied,
+      is_auto_corrected: true,
+      approver_name: currentUser.name,
+      timestamp: new Date().toISOString(),
+      user_name: currentUser.name
+    });
+
+    this.persist();
+    return { success: true, message: `Anomaly #${anom.id} auto-corrected and logged to AI Audit Trail.` };
+  }
+
+  public logAIAuditTrail(entry: AIAuditTrailEntry): void {
+    this.state.aiAuditTrail.unshift(entry);
+    // Keep reasonable history length
+    if (this.state.aiAuditTrail.length > 500) {
+      this.state.aiAuditTrail = this.state.aiAuditTrail.slice(0, 500);
+    }
+    this.persist();
+  }
+
+  public updateVoiceFeedbackConfig(config: Partial<VoiceFeedbackConfig>): void {
+    this.state.voiceFeedbackConfig = { ...this.state.voiceFeedbackConfig, ...config };
+    this.persist();
+  }
+
+  public recordUserMistake(
+    userId: string,
+    userName: string,
+    errorType: string,
+    reason: string
+  ): UserErrorProfile {
+    const profile = this.state.userErrorProfiles[userId] || {
+      user_id: userId,
+      user_name: userName,
+      total_mistakes: 0,
+      recurrent_types: {},
+      current_warning_level: 1,
+      last_warning_text: '',
+      last_mistake_at: ''
+    };
+
+    profile.total_mistakes += 1;
+    profile.recurrent_types[errorType] = (profile.recurrent_types[errorType] || 0) + 1;
+    profile.last_mistake_at = new Date().toISOString();
+
+    if (profile.total_mistakes >= 4) {
+      profile.current_warning_level = 4;
+      profile.last_warning_text = 'গুরুতর আর্থিক ভুল: ট্রানজেকশন সাবমিট ব্লক করা হয়েছে। সুপারভাইজার অনুমোদন প্রয়োজন।';
+    } else if (profile.total_mistakes >= 3) {
+      profile.current_warning_level = 3;
+      profile.last_warning_text = 'একই ধরনের ভুল বারবার হচ্ছে। অনুগ্রহ করে তথ্য যাচাই করুন এবং নিয়ম মেনে চালান করুন।';
+    } else if (profile.total_mistakes >= 2) {
+      profile.current_warning_level = 2;
+      profile.last_warning_text = 'একই ভুল পুনরাবৃত্তি হয়েছে! অনুগ্রহ করে সতর্ক হোন।';
+    } else {
+      profile.current_warning_level = 1;
+      profile.last_warning_text = reason || 'ভুলটি চিহ্নিত করে সঠিক পদ্ধতি বুঝিয়ে দেওয়া হয়েছে।';
+    }
+
+    this.state.userErrorProfiles[userId] = profile;
+    this.persist();
+    return profile;
   }
 
   public deletePurchase(id: string): { success: boolean; message: string } {

@@ -28,6 +28,7 @@ import {
   Unlock,
   Eye,
   CheckCircle,
+  Building,
   X
 } from 'lucide-react';
 import { DatabaseControlModal } from '../modals/DatabaseControlModal';
@@ -43,10 +44,21 @@ export const ApprovalAuditViews: React.FC<ApprovalAuditViewsProps> = ({ mode }) 
   const [isDatabaseControlModalOpen, setIsDatabaseControlModalOpen] = useState(false);
 
   // 360-Degree Backup, Restore & Reset State
-  const [activeBackupTab, setActiveBackupTab] = useState<'export' | 'snapshots' | 'restore' | 'reset'>('export');
+  const [activeBackupTab, setActiveBackupTab] = useState<'export' | 'snapshots' | 'restore' | 'reset' | 'company'>('export');
   const [snapshotName, setSnapshotName] = useState('');
   const [snapshots, setSnapshots] = useState<DatabaseSnapshot[]>([]);
   const [copiedJson, setCopiedJson] = useState(false);
+
+  // Central Company Profile State (Section 13)
+  const [compName, setCompName] = useState(state.company?.name || '');
+  const [compLegalName, setCompLegalName] = useState(state.company?.legal_name || '');
+  const [compBin, setCompBin] = useState(state.company?.bin_number || '');
+  const [compVat, setCompVat] = useState(state.company?.vat_registration || '');
+  const [compPhone, setCompPhone] = useState(state.company?.phone || '');
+  const [compEmail, setCompEmail] = useState(state.company?.email || '');
+  const [compAddress, setCompAddress] = useState(state.company?.address || '');
+  const [compWebsite, setCompWebsite] = useState(state.company?.website || '');
+  const [compSuccessMsg, setCompSuccessMsg] = useState(false);
 
   // Restore State
   const [importJson, setImportJson] = useState('');
@@ -224,6 +236,23 @@ export const ApprovalAuditViews: React.FC<ApprovalAuditViewsProps> = ({ mode }) 
     setSelectedResetType(null);
     setResetConfirmInput('');
     setTimeout(() => setResetSuccessMsg(null), 5000);
+  };
+
+  const handleSaveCompany = (e: React.FormEvent) => {
+    e.preventDefault();
+    storage.updateCompanyProfile({
+      name: compName,
+      legal_name: compLegalName,
+      bin_number: compBin,
+      vat_registration: compVat,
+      phone: compPhone,
+      email: compEmail,
+      address: compAddress,
+      website: compWebsite
+    });
+    setCompSuccessMsg(true);
+    refreshState();
+    setTimeout(() => setCompSuccessMsg(false), 4000);
   };
 
   // --- INTEGRITY CHECK ---
@@ -511,6 +540,18 @@ export const ApprovalAuditViews: React.FC<ApprovalAuditViewsProps> = ({ mode }) 
             >
               <RefreshCw className="w-4 h-4" />
               <span>{t('4. 360° Selective Reset & Wiping', '৪. সিলেক্টিভ রিসেট ও ওয়াইপ')}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveBackupTab('company')}
+              className={`pb-3 px-4 flex items-center space-x-2 border-b-2 transition ${
+                activeBackupTab === 'company'
+                  ? 'border-amber-600 text-amber-600 dark:text-amber-400'
+                  : 'border-transparent text-slate-500 hover:text-amber-600 dark:hover:text-amber-400'
+              }`}
+            >
+              <Building className="w-4 h-4" />
+              <span>{t('5. Central Company Profile', '৫. প্রতিষ্ঠানের পরিচিতি ও তথ্য')}</span>
             </button>
           </div>
 
@@ -918,6 +959,145 @@ export const ApprovalAuditViews: React.FC<ApprovalAuditViewsProps> = ({ mode }) 
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 5: CENTRAL COMPANY PROFILE & CONFIGURATION */}
+          {activeBackupTab === 'company' && (
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-2xs space-y-6">
+              <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center space-x-2">
+                    <Building className="w-5 h-5 text-amber-500" />
+                    <span>{t('Central Company Information & Documents Header', 'প্রতিষ্ঠানের কেন্দ্রীয় পরিচিতি ও ডকুমেন্ট কনফিগারেশন')}</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {t(
+                      'Changes made here immediately synchronize across all Invoice printouts, POS receipts, Quotations, Reports, Headers and Dashboard branding without manual re-entry.',
+                      'এখানে পরিবর্তিত নাম, ঠিকানা বা বিন নম্বর তাৎক্ষণিকভাবে সফটওয়্যারের প্রতিটি চালান, রসিদ, কোটেশন, রিপোর্ট ও হেডারে স্বয়ংক্রিয়ভাবে আপডেট হবে।'
+                    )}
+                  </p>
+                </div>
+                {compSuccessMsg && (
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-lg text-xs font-bold flex items-center space-x-1 animate-pulse">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>সর্বত্র সফলভাবে আপডেট হয়েছে!</span>
+                  </span>
+                )}
+              </div>
+
+              <form onSubmit={handleSaveCompany} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      প্রতিষ্ঠানের ট্রেড নাম (Display Business Name) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={compName}
+                      onChange={e => setCompName(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      আইনগত নাম (Legal Company Name)
+                    </label>
+                    <input
+                      type="text"
+                      value={compLegalName}
+                      onChange={e => setCompLegalName(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      BIN (বিজনেস আইডেন্টিফিকেশন নম্বর)
+                    </label>
+                    <input
+                      type="text"
+                      value={compBin}
+                      onChange={e => setCompBin(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 font-mono text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      ভ্যাট রেজিস্ট্রেশন নম্বর (VAT Reg #)
+                    </label>
+                    <input
+                      type="text"
+                      value={compVat}
+                      onChange={e => setCompVat(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 font-mono text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      অফিসিয়াল হটলাইন / ফোন নম্বর *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={compPhone}
+                      onChange={e => setCompPhone(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      ইমেইল ঠিকানা (Official Email)
+                    </label>
+                    <input
+                      type="email"
+                      value={compEmail}
+                      onChange={e => setCompEmail(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-xs"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      প্রধান কার্যালয় / শোরুমের পূর্ণাঙ্গ ঠিকানা (Address for Invoices & Receipts) *
+                    </label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={compAddress}
+                      onChange={e => setCompAddress(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-xs"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      ওয়েবসাইট বা ফেসবুক পেজ লিংক (Website)
+                    </label>
+                    <input
+                      type="text"
+                      value={compWebsite}
+                      onChange={e => setCompWebsite(e.target.value)}
+                      className="w-full p-2.5 rounded-lg border bg-slate-50 dark:bg-slate-800 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md flex items-center space-x-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>{t('Save & Sync Everywhere', 'সংরক্ষণ করুন ও সর্বত্র আপডেট করুন')}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>

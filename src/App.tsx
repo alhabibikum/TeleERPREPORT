@@ -4,6 +4,7 @@ import { TopBar } from './components/layout/TopBar';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
 import { GlobalSearchModal } from './components/layout/GlobalSearchModal';
 import { NotificationDrawer } from './components/layout/NotificationDrawer';
+import { AIOwnerGuardianModal } from './components/guardian/AIOwnerGuardianModal';
 
 // Main Views
 import { ExecutiveDashboard } from './components/dashboard/ExecutiveDashboard';
@@ -87,6 +88,7 @@ const MainLayout: React.FC = () => {
       {/* Global Modals */}
       <GlobalSearchModal />
       <NotificationDrawer />
+      <AIOwnerGuardianModal />
     </div>
   );
 };

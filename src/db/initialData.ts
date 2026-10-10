@@ -28,7 +28,11 @@ import {
   SalesReturn,
   BankReconciliationRecord,
   SMSNotificationLog,
-  InstallmentAgreement
+  InstallmentAgreement,
+  AIAnomalyRecord,
+  AIAuditTrailEntry,
+  VoiceFeedbackConfig,
+  UserErrorProfile
 } from '../types';
 
 export const initialCompany: Company = {
@@ -2121,5 +2125,201 @@ export const initialInstallments: InstallmentAgreement[] = [
     created_at: '2026-09-01T15:20:00'
   }
 ];
+
+export const initialVoiceConfig: VoiceFeedbackConfig = {
+  enabled: true,
+  language: 'bn-BD',
+  volume: 1.0,
+  rate: 0.95,
+  autoSpeakAlerts: true
+};
+
+export const initialAnomalies: AIAnomalyRecord[] = [
+  {
+    id: 'anom_1',
+    type: 'loss_sale',
+    severity: 'critical',
+    status: 'auto_corrected',
+    module: 'pos',
+    record_id: 'sale_101',
+    reference_no: 'INV-2026-101',
+    title: 'ক্রয়মূল্যের চেয়ে কমে বিক্রয় রোধ (Loss Sale Prevented)',
+    description: 'iPhone 15 Pro Max এর বিক্রয়মূল্য ৳১১০,০০০ দেওয়া হয়েছিল, যেখানে গড় ক্রয়মূল্য ৳১৪৮,০০০।',
+    reason: 'ক্রয়মূল্য অপেক্ষা কম মূল্যে বিক্রয় নিষিদ্ধ (RULE_NO_NEGATIVE_MARGIN)',
+    detected_value: 110000,
+    suggested_value: 154000,
+    applied_value: 154000,
+    user_id: 'usr_5',
+    user_name: 'Farhan Ahmed',
+    user_role: 'cashier',
+    rule_applied: 'RULE_NO_NEGATIVE_MARGIN',
+    financial_impact: 38000,
+    created_at: '2026-10-07T11:30:00Z',
+    resolved_at: '2026-10-07T11:30:05Z',
+    resolved_by: 'AI Owner Guardian Engine',
+    resolution_notes: 'সিস্টেম স্বয়ংক্রিয়ভাবে অনুমোদিত ন্যূনতম নিরাপদ বিক্রয়মূল্য প্রয়োগ করেছে।',
+    is_recurrent: false,
+    recurrent_count: 1
+  },
+  {
+    id: 'anom_2',
+    type: 'customer_tier_mismatch',
+    severity: 'high',
+    status: 'auto_corrected',
+    module: 'sales',
+    record_id: 'sale_102',
+    reference_no: 'INV-2026-102',
+    title: 'হোলসেল কাস্টমার মূল্যের অসংগতি সংশোধন (Wholesale Tier Enforcement)',
+    description: 'কর্পোরেট হোলসেল পার্টনার Trust Mobile Hub এর চালানে খুচরা রেট ৳১৩৯,০০০ ধরা হয়েছিল।',
+    reason: 'হোলসেল কাস্টমারদের জন্য নির্ধারিত পাইকারি মূল্য তালিকা প্রয়োগ বাধ্যতামুলক',
+    detected_value: 139000,
+    suggested_value: 129000,
+    applied_value: 129000,
+    user_id: 'usr_4',
+    user_name: 'Kamrul Hasan',
+    user_role: 'sales_executive',
+    rule_applied: 'RULE_WHOLESALE_TIER_POLICY',
+    financial_impact: 10000,
+    created_at: '2026-10-07T14:15:00Z',
+    resolved_at: '2026-10-07T14:15:10Z',
+    resolved_by: 'AI Owner Guardian Engine',
+    resolution_notes: 'অনুমোদিত হোলসেল পলিসি অনুযায়ী ইনভয়েস রেট সমন্বয় করা হয়েছে।',
+    is_recurrent: true,
+    recurrent_count: 2
+  },
+  {
+    id: 'anom_3',
+    type: 'ledger_unbalanced',
+    severity: 'critical',
+    status: 'pending_approval',
+    module: 'accounting',
+    record_id: 'jrn_99',
+    reference_no: 'JRN-2026-99',
+    title: 'অসম ডেবিট ও ক্রেডিট শনাক্তকরণ (Unbalanced Journal)',
+    description: 'ম্যানুয়াল জার্নাল এন্ট্রিতে ডেবিট ৳২৫,০০০ কিন্তু ক্রেডিট ৳২০,০০০ (পার্থক্য ৳৫,০০০)।',
+    reason: 'ডাবল এন্ট্রি নীতিমালায় ডেবিট ও ক্রেডিট সর্বদা সমান হতে হবে।',
+    detected_value: { debit: 25000, credit: 20000 },
+    suggested_value: { debit: 25000, credit: 25000 },
+    user_id: 'usr_6',
+    user_name: 'Mahmudul Hasan',
+    user_role: 'accountant',
+    rule_applied: 'RULE_DOUBLE_ENTRY_BALANCE',
+    financial_impact: 5000,
+    created_at: '2026-10-08T09:40:00Z',
+    is_recurrent: false,
+    recurrent_count: 1
+  },
+  {
+    id: 'anom_4',
+    type: 'discount_excess',
+    severity: 'medium',
+    status: 'approved',
+    module: 'pos',
+    record_id: 'sale_104',
+    reference_no: 'INV-2026-104',
+    title: 'অস্বাভাবিক ডিসকাউন্ট সীমা অতিক্রম (Discount Cap Override)',
+    description: 'Xiaomi Redmi Note 13 এ ৳৫,৫০০ ডিসকাউন্ট দেওয়া হয়েছিল যা গ্রস মার্জিনকে শূন্য করেছিল।',
+    reason: 'সর্বোচ্চ অনুমোদিত ডিসকাউন্ট মার্জিনের ৫০% এর বেশি হতে পারবে না।',
+    detected_value: 5500,
+    suggested_value: 2000,
+    applied_value: 2000,
+    user_id: 'usr_5',
+    user_name: 'Farhan Ahmed',
+    user_role: 'cashier',
+    rule_applied: 'RULE_MAX_DISCOUNT_CAP',
+    financial_impact: 3500,
+    created_at: '2026-10-08T16:00:00Z',
+    resolved_at: '2026-10-08T16:05:00Z',
+    resolved_by: 'Owner (Tanvir Ahmed)',
+    resolution_notes: 'মালিক কর্তৃক বিশেষ অনুমোদনক্রমে ক্যাপ অনুযায়ী সংশোধন করা হয়েছে।',
+    is_recurrent: true,
+    recurrent_count: 3
+  }
+];
+
+export const initialAIAuditTrail: AIAuditTrailEntry[] = [
+  {
+    id: 'audit_ai_1',
+    anomaly_id: 'anom_1',
+    original_trx_id: 'sale_101',
+    trx_type: 'sale',
+    module: 'pos',
+    field: 'items[0].unit_price',
+    old_value: '৳110,000',
+    new_value: '৳154,000',
+    detected_reason: 'বিক্রয়মূল্য ক্রয়মূল্যের চেয়ে ৳৩৮,০০০ কম দেওয়া হয়েছিল',
+    ai_decision: 'অটোমেটিক মার্জিন ফ্লোর প্রয়োগ এবং চালানে ন্যূনতম মূল্য নির্ধারণ',
+    business_rule: 'RULE_NO_NEGATIVE_MARGIN',
+    is_auto_corrected: true,
+    timestamp: '2026-10-07T11:30:05Z',
+    user_name: 'Farhan Ahmed'
+  },
+  {
+    id: 'audit_ai_2',
+    anomaly_id: 'anom_2',
+    original_trx_id: 'sale_102',
+    trx_type: 'sale',
+    module: 'sales',
+    field: 'items[0].unit_price',
+    old_value: '৳139,000',
+    new_value: '৳129,000',
+    detected_reason: 'হোলসেল কাস্টমারকে রিটেল রেট চার্জ করা হয়েছিল',
+    ai_decision: 'অনুমোদিত হোলসেল রেট অনুযায়ী মূল্য হ্রাস ও চালানে সমন্বয়',
+    business_rule: 'RULE_WHOLESALE_TIER_POLICY',
+    is_auto_corrected: true,
+    timestamp: '2026-10-07T14:15:10Z',
+    user_name: 'Kamrul Hasan'
+  },
+  {
+    id: 'audit_ai_3',
+    original_trx_id: 'sale_88',
+    trx_type: 'sale',
+    module: 'sales',
+    field: 'status',
+    old_value: 'voided',
+    new_value: 'posted',
+    detected_reason: 'ভুলবশত বাতিলকৃত চালান অ্যাডমিন কর্তৃক পুনরুদ্ধার',
+    ai_decision: 'ইনভেন্টরি প্রাপ্যতা ও লেজার ডাবল-কাউন্টিং যাচাইপূর্বক সফল রিস্টোরেশন',
+    business_rule: 'RULE_SAFE_ADMIN_RESTORE',
+    is_auto_corrected: false,
+    approver_name: 'Tanvir Ahmed (Owner)',
+    timestamp: '2026-10-08T10:00:00Z',
+    user_name: 'Tanvir Ahmed',
+    restore_history: [
+      {
+        timestamp: '2026-10-08T10:00:00Z',
+        restored_by: 'Tanvir Ahmed',
+        reason: 'গ্রাহক পণ্য অক্ষত রেখে পুনরায় গ্রহণ করায় পূর্বের চালানটি সক্রিয় করা হলো।'
+      }
+    ]
+  }
+];
+
+export const initialUserErrorProfiles: Record<string, UserErrorProfile> = {
+  usr_5: {
+    user_id: 'usr_5',
+    user_name: 'Farhan Ahmed',
+    total_mistakes: 3,
+    recurrent_types: {
+      loss_sale: 1,
+      discount_excess: 2
+    },
+    current_warning_level: 3,
+    last_warning_text: 'একই ধরনের ভুল বারবার হচ্ছে। অনুগ্রহ করে তথ্য যাচাই করুন এবং নিয়ম মেনে চালান করুন।',
+    last_mistake_at: '2026-10-08T16:00:00Z'
+  },
+  usr_4: {
+    user_id: 'usr_4',
+    user_name: 'Kamrul Hasan',
+    total_mistakes: 2,
+    recurrent_types: {
+      customer_tier_mismatch: 2
+    },
+    current_warning_level: 2,
+    last_warning_text: 'সতর্কতা! এই লেনদেনে সম্ভাব্য মূল্য বা ছাড়ের অসংগতি রয়েছে। সংশোধন করুন।',
+    last_mistake_at: '2026-10-07T14:15:00Z'
+  }
+};
+
 
 

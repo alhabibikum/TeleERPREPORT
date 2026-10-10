@@ -3,6 +3,14 @@ import { useApp } from '../../context/AppContext';
 import { storage } from '../../db/storage';
 import { Product, IMEIDevice, Customer, PaymentSplitDetail } from '../../types';
 import confetti from 'canvas-confetti';
+import { aiOwnerGuardian } from '../../services/aiOwnerGuardian';
+import { SmartValidationResult } from '../../types/guardian';
+import { SmartEntryValidationBanner } from '../guardian/SmartEntryValidationBanner';
+import {
+  aiOwnerGuardianValidationEngine,
+  GuardianInterceptionResult
+} from '../../services/aiOwnerGuardianValidationEngine';
+import { GuardianInterceptModal } from '../guardian/GuardianInterceptModal';
 import {
   Search,
   Barcode,
@@ -31,7 +39,9 @@ interface CartItem {
 }
 
 export const POSTerminal: React.FC = () => {
-  const { state, activeBranchId, currentUser, t } = useApp();
+  const { state, activeBranchId, currentUser, triggerGuardianVoice, t } = useApp();
+  const [guardianValidation, setGuardianValidation] = useState<SmartValidationResult | null>(null);
+  const [guardianInterception, setGuardianInterception] = useState<GuardianInterceptionResult | null>(null);
 
   // Branch must be concrete for POS
   const effectiveBranchId = activeBranchId === 'all' ? 'br_1' : activeBranchId;
@@ -171,20 +181,22 @@ export const POSTerminal: React.FC = () => {
   const totalDiscount = cart.reduce((sum, item) => sum + item.discount * item.quantity, 0);
   const grandTotal = Math.max(0, subtotal - totalDiscount);
 
-  const handleCompleteSale = () => {
-    if (cart.length === 0) {
-      setErrorMsg('Cart is empty!');
-      return;
-    }
-
-    // Verify all IMEI items have selected IMEI
-    for (const item of cart) {
-      if (item.product.has_imei && !item.selectedImeiId) {
-        setErrorMsg(`Please select IMEI for ${item.product.name}`);
-        return;
+  const handleApplyCorrection = (field: string, suggestedVal: any) => {
+    const match = field.match(/items\[(\d+)\]\.(unit_price|discount)/);
+    if (match) {
+      const idx = parseInt(match[1]);
+      const prop = match[2];
+      const updated = [...cart];
+      if (updated[idx]) {
+        if (prop === 'unit_price') updated[idx].unit_price = Number(suggestedVal);
+        if (prop === 'discount') updated[idx].discount = Number(suggestedVal);
+        setCart(updated);
+        setGuardianValidation(null);
       }
     }
+  };
 
+  const executeCompleteSale = () => {
     let splits: PaymentSplitDetail[] | undefined = undefined;
     if (paymentMethod === 'split') {
       const candidateSplits: PaymentSplitDetail[] = [
@@ -239,6 +251,46 @@ export const POSTerminal: React.FC = () => {
     setIsReceiptModalOpen(true);
     setCart([]);
     setErrorMsg(null);
+    setGuardianInterception(null);
+    setGuardianValidation(null);
+  };
+
+  const handleCompleteSale = () => {
+    if (cart.length === 0) {
+      setErrorMsg('Cart is empty!');
+      return;
+    }
+
+    // Verify all IMEI items have selected IMEI
+    for (const item of cart) {
+      if (item.product.has_imei && !item.selectedImeiId) {
+        setErrorMsg(`Please select IMEI for ${item.product.name}`);
+        return;
+      }
+    }
+
+    // Smart AI Owner Guardian Intercept Validation
+    const interception = aiOwnerGuardianValidationEngine.interceptSalesSubmission({
+      items: cart.map(c => ({
+        product_id: c.product.id,
+        quantity: c.quantity,
+        unit_price: c.unit_price,
+        discount: c.discount,
+        imei_id: c.selectedImeiId
+      })),
+      customer_id: selectedCustomerId,
+      branch_id: currentBranch.id,
+      currentUser,
+      state
+    });
+
+    if (!interception.isValid) {
+      aiOwnerGuardianValidationEngine.recordAndAlert(interception, currentUser, state);
+      setGuardianInterception(interception);
+      return;
+    }
+
+    executeCompleteSale();
   };
 
   const handleCreateCustomer = () => {
@@ -617,6 +669,15 @@ export const POSTerminal: React.FC = () => {
             </div>
           )}
 
+          {/* AI Owner Guardian Smart Validation Banner */}
+          {guardianValidation && (
+            <SmartEntryValidationBanner
+              validation={guardianValidation}
+              onApplyCorrection={handleApplyCorrection}
+              onDismiss={() => setGuardianValidation(null)}
+            />
+          )}
+
           {/* Checkout Button */}
           <button
             onClick={handleCompleteSale}
@@ -853,6 +914,33 @@ export const POSTerminal: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* AI Owner Guardian Intercept Modal */}
+      <GuardianInterceptModal
+        result={guardianInterception}
+        onClose={() => setGuardianInterception(null)}
+        onApplyCorrection={(field, val) => {
+          const match = field.match(/items\[(\d+)\]\.(unit_price|discount|quantity)/);
+          if (match) {
+            const idx = parseInt(match[1]);
+            const prop = match[2];
+            const updated = [...cart];
+            if (updated[idx]) {
+              if (prop === 'unit_price') updated[idx].unit_price = Number(val);
+              if (prop === 'discount') updated[idx].discount = Number(val);
+              if (prop === 'quantity') updated[idx].quantity = Number(val);
+              setCart(updated);
+            }
+          }
+          setGuardianInterception(null);
+        }}
+        onProceedAnyway={() => {
+          executeCompleteSale();
+        }}
+        onSupervisorOverride={() => {
+          executeCompleteSale();
+        }}
+      />
     </div>
   );
 };

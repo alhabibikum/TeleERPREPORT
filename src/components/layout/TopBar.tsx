@@ -27,6 +27,7 @@ export const TopBar: React.FC = () => {
     setDarkMode,
     setIsSearchOpen,
     setIsNotificationOpen,
+    setIsAIGuardianOpen,
     unreadAlertCount,
     pendingApprovalCount,
     t
@@ -81,24 +82,19 @@ export const TopBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Middle: Search Trigger */}
-      <div className="flex-1 max-w-md mx-4 hidden md:block">
-        <button
-          onClick={() => setIsSearchOpen(true)}
-          className="w-full flex items-center justify-between px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/70 dark:hover:bg-slate-700/60 text-slate-400 dark:text-slate-500 rounded-lg text-xs border border-slate-200 dark:border-slate-700 transition"
-        >
-          <span className="flex items-center space-x-2">
-            <Search className="w-3.5 h-3.5 text-slate-400" />
-            <span>{t('Search IMEI, Invoice, Customer, Model...', 'আইএমইআই, চালান, গ্রাহক অনুসন্ধান...')}</span>
-          </span>
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-slate-500 dark:text-slate-400 shadow-2xs">
-            Ctrl K
-          </kbd>
-        </button>
-      </div>
+      {/* Spacer to push controls to the right */}
+      <div className="flex-1" />
 
       {/* Right Controls */}
       <div className="flex items-center space-x-2">
+        {/* Header AI Button: MUST ONLY DISPLAY "মালিক" */}
+        <button
+          onClick={() => setIsAIGuardianOpen(true)}
+          className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 transition-all shadow-xs ring-1 ring-amber-400/60 cursor-pointer tracking-wide"
+          title="AI Owner Guardian Console"
+        >
+          মালিক
+        </button>
         {/* Language Switch */}
         <button
           onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')}
